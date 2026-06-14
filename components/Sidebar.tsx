@@ -70,7 +70,7 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
 
       {/* Logo */}
       <div className="flex items-center gap-[11px] px-[10px] pb-[22px]">
-        <div className="w-[34px] h-[34px] flex-shrink-0 rounded-[10px] bg-[var(--violet)] flex items-center justify-center gap-[2.5px] shadow-[0_4px_12px_-3px_oklch(0.56_0.18_295_/_0.55)]">
+        <div className="w-[34px] h-[34px] flex-shrink-0 rounded-[10px] bg-[var(--violet)] flex items-center justify-center gap-[2.5px] shadow-[0_4px_12px_-3px_oklch(0.58_0.16_255_/_0.55)]">
           <span className="w-[3px] h-[9px] rounded-sm bg-white opacity-95" />
           <span className="w-[3px] h-[16px] rounded-sm bg-white" />
           <span className="w-[3px] h-[12px] rounded-sm bg-white opacity-85" />
@@ -95,7 +95,7 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
               className={`flex items-center gap-3 px-3 py-[9px] rounded-[10px] text-sm font-medium cursor-pointer transition-colors ${
                 active
                   ? "bg-[var(--violet-active)] text-[var(--text-primary)] font-semibold"
-                  : "text-[var(--text-secondary)] hover:bg-[oklch(0.97_0.004_264)]"
+                  : "text-[var(--text-secondary)] hover:bg-[#F0F0F8]"
               }`}
               style={{ color: active ? undefined : undefined }}
             >
@@ -117,13 +117,13 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-            <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 bg-white border border-[oklch(0.92_0.005_264)] rounded-[14px] shadow-[0_16px_40px_-12px_oklch(0.30_0.04_264_/_0.28)] p-[6px] flex flex-col">
+            <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 bg-white border border-[#E8E8F2] rounded-[14px] shadow-[0_16px_40px_-12px_rgba(28,28,46,0.18)] p-[6px] flex flex-col">
               <span className="font-mono text-[9.5px] tracking-[0.08em] uppercase text-[var(--text-subtle)] px-[10px] pt-2 pb-[6px]">
                 Account
               </span>
               <button
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-[11px] px-[10px] py-[9px] rounded-[9px] text-[13px] font-medium text-[var(--text-primary)] hover:bg-[oklch(0.97_0.004_264)] cursor-pointer border-none bg-transparent text-left w-full"
+                className="flex items-center gap-[11px] px-[10px] py-[9px] rounded-[9px] text-[13px] font-medium text-[var(--text-primary)] hover:bg-[#F4F4F8] cursor-pointer border-none bg-transparent text-left w-full"
               >
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="oklch(0.5 0.02 264)" strokeWidth="1.7">
                   <line x1="3" y1="5.5" x2="15" y2="5.5" />
@@ -153,20 +153,20 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
           {/* Standalone avatar — no surrounding box */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="w-10 h-10 flex-shrink-0 rounded-[11px] border-none cursor-pointer flex items-center justify-center font-heading font-bold text-[14px] bg-[oklch(0.94_0.04_295)] text-[oklch(0.50_0.18_295)]"
+            className="w-10 h-10 flex-shrink-0 rounded-[11px] border-none cursor-pointer flex items-center justify-center font-heading font-bold text-[14px] bg-[var(--violet-active)] text-[var(--violet-text)]"
             title="Account"
           >
             K
           </button>
 
           {/* Rhythm ring block */}
-          <div className="flex items-center gap-[11px] flex-1 min-w-0 bg-[oklch(0.98_0.004_264)] border border-[var(--border)] rounded-[14px] px-3 py-[9px]">
+          <div className="flex items-center gap-[11px] flex-1 min-w-0 bg-[#F4F4F8] border border-[var(--border)] rounded-[14px] px-3 py-[9px]">
             <div className="relative w-10 h-10 flex-shrink-0">
               <svg width="40" height="40" viewBox="0 0 80 80" className="-rotate-90">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="oklch(0.92 0.006 264)" strokeWidth="10" />
+                <circle cx="40" cy="40" r="34" fill="none" stroke="#E4E4EE" strokeWidth="10" />
                 <circle
                   cx="40" cy="40" r="34" fill="none"
-                  stroke="oklch(0.55 0.18 295)" strokeWidth="10" strokeLinecap="round"
+                  stroke="oklch(0.58 0.16 255)" strokeWidth="10" strokeLinecap="round"
                   style={{
                     strokeDasharray: CIRC,
                     strokeDashoffset: dashOffset,

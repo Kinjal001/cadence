@@ -1,54 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg:        oklch(0.975 0.004 264);
-  --sidebar-bg:    #ffffff;
-  --border:        oklch(0.93 0.005 264);
-  --border-soft:   oklch(0.89 0.006 264);
-  --text-primary:  oklch(0.30 0.035 264);
-  --text-secondary:oklch(0.52 0.02  264);
-  --text-muted:    oklch(0.58 0.018 264);
-  --text-subtle:   oklch(0.60 0.015 264);
+  color-scheme: light; /* always light — no dark mode in this app */
 
-  --violet:        oklch(0.56 0.18 295);
-  --violet-active: oklch(0.95 0.035 295);
-  --violet-ring:   oklch(0.92 0.006 264);
-  --violet-text:   oklch(0.44 0.13  295);
+  /* Backgrounds */
+  --app-bg:     #F8F8FC;
+  --card-bg:    #ffffff;
+  --sidebar-bg: #ffffff;
 
-  --badge-bg:      oklch(0.96 0.03  295);
-  --badge-border:  oklch(0.91 0.035 295);
-  --badge-text:    oklch(0.44 0.13  295);
+  /* Borders */
+  --border:     #E8E8F2;
+  --border-soft:#DDDDE8;
+
+  /* Text */
+  --text-primary:   #1C1C2E;
+  --text-secondary: #5A5A78;
+  --text-muted:     #6E6E88;
+  --text-subtle:    #8A8AA4;
+
+  /* Violet brand — oklch(0.58 0.16 255) as specified */
+  --violet:        oklch(0.58 0.16 255);
+  --violet-active: oklch(0.94 0.04 255);
+  --violet-text:   oklch(0.44 0.14 255);
+
+  /* Header streak badge */
+  --badge-bg:     oklch(0.95 0.03 255);
+  --badge-border: oklch(0.88 0.06 255);
+  --badge-text:   oklch(0.42 0.14 255);
 }
 
 @theme inline {
-  --font-heading: var(--font-bricolage),     sans-serif;
-  --font-sans:    var(--font-plus-jakarta),  sans-serif;
-  --font-mono:    var(--font-jetbrains-mono),monospace;
+  --font-heading: var(--font-bricolage),      sans-serif;
+  --font-sans:    var(--font-plus-jakarta),   sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), monospace;
+}
+
+/* Explicit light theme on root elements — prevents system dark mode bleed */
+html,
+body {
+  background: #F8F8FC;
+  color: #1C1C2E;
 }
 
 body {
-  background: var(--app-bg);
-  color: var(--text-primary);
   font-family: var(--font-plus-jakarta), sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.9 0.005 264);
+  background: #D8D8E8;
   border-radius: 10px;
-  border: 3px solid oklch(0.975 0.004 264);
+  border: 3px solid #F8F8FC;
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* Per-daily accent tokens — applied as a class on the card wrapper */
-.accent-violet  { --accent: oklch(0.56 0.18 295); --accent-empty: oklch(0.93 0.006 264); --accent-shadow: oklch(0.56 0.18 295 / 0.38); }
-.accent-blue    { --accent: oklch(0.57 0.15 252); --accent-empty: oklch(0.93 0.006 264); --accent-shadow: oklch(0.57 0.15 252 / 0.38); }
-.accent-emerald { --accent: oklch(0.60 0.12 165); --accent-empty: oklch(0.93 0.006 264); --accent-shadow: oklch(0.60 0.12 165 / 0.38); }
-.accent-amber   { --accent: oklch(0.72 0.13 76);  --accent-empty: oklch(0.93 0.006 264); --accent-shadow: oklch(0.72 0.13 76  / 0.38); }
+/* Per-daily accent tokens — applied as a className on each card wrapper */
+.accent-violet  { --accent: oklch(0.58 0.16 255); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.58 0.16 255 / 0.35); }
+.accent-blue    { --accent: oklch(0.57 0.15 240); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
+.accent-emerald { --accent: oklch(0.60 0.12 165); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
+.accent-amber   { --accent: oklch(0.72 0.13 76);  --accent-empty: #E8E8F2; --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
 
-/* Insight card gradient — single class keeps gradient out of arbitrary value noise */
+/* Insight card gradient (violet brand, updated hue) */
 @utility insight-card {
-  background: linear-gradient(150deg, oklch(0.63 0.14 295), oklch(0.55 0.15 288));
-  box-shadow: 0 14px 30px -12px oklch(0.5 0.16 295 / 0.5);
+  background: linear-gradient(150deg, oklch(0.62 0.15 255), oklch(0.52 0.16 248));
+  box-shadow: 0 14px 30px -12px oklch(0.50 0.16 255 / 0.50);
 }

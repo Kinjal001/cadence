@@ -23,21 +23,19 @@ interface Task {
   done: boolean;
 }
 
-const SEED_DAILIES: Daily[] = [
-  { id: 1, name: "Morning meditation", desc: "10 minutes of breath work",      accent: "violet",  streak: 12, past: [true, true, true, true, true, true],   doneToday: true  },
-  { id: 2, name: "Read 20 pages",      desc: "Currently: Four Thousand Weeks", accent: "blue",    streak: 5,  past: [true, false, true, true, true, true],  doneToday: false },
-  { id: 3, name: "Morning workout",    desc: "Strength or a short run",         accent: "emerald", streak: 23, past: [true, true, true, true, true, true],   doneToday: true  },
-  { id: 4, name: "Evening journal",    desc: "Three lines before bed",          accent: "amber",   streak: 8,  past: [true, true, false, true, true, true],  doneToday: false },
-  { id: 5, name: "Drink 8 glasses",   desc: "Stay ahead of the thirst",        accent: "blue",    streak: 3,  past: [false, false, true, true, true, true], doneToday: false },
-  { id: 6, name: "Stretch & mobility",desc: "Hips, hamstrings, shoulders",     accent: "emerald", streak: 16, past: [true, true, true, false, true, true],  doneToday: true  },
+const ACCENT_CYCLE: Accent[] = ["violet", "blue", "emerald", "amber"];
+
+const DEFAULT_DAILIES: Daily[] = [
+  { id: 1, name: "Movement",     desc: "Any exercise counts",          accent: "violet",  streak: 0, past: [false, false, false, false, false, false], doneToday: false },
+  { id: 2, name: "Healthy Food", desc: "Eat well at least twice today", accent: "emerald", streak: 0, past: [false, false, false, false, false, false], doneToday: false },
+  { id: 3, name: "Journaling",   desc: "Three lines before bed",       accent: "amber",   streak: 0, past: [false, false, false, false, false, false], doneToday: false },
+  { id: 4, name: "Learning",     desc: "Read, watch, or practice",     accent: "blue",    streak: 0, past: [false, false, false, false, false, false], doneToday: false },
 ];
 
-const SEED_TASKS: Task[] = [
-  { id: 1, label: "Review Q3 planning doc",          meta: "Work · 9:00 AM",    done: false },
-  { id: 2, label: "Reply to Dana about the offsite", meta: "Email",             done: false },
-  { id: 3, label: "Finish Cadence onboarding copy",  meta: "Design · 2:00 PM", done: false },
-  { id: 4, label: "Book dentist appointment",        meta: "Personal",          done: false },
-  { id: 5, label: "30-min deep work block",          meta: "Focus · 4:30 PM",  done: false },
+const DEFAULT_TASKS: Task[] = [
+  { id: 1, label: "Plan out today's priorities", meta: "Personal", done: false },
+  { id: 2, label: "Check in with a friend",      meta: "Social",   done: false },
+  { id: 3, label: "15-min tidy up",              meta: "Home",     done: false },
 ];
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -122,8 +120,11 @@ function getInsight(dailies: Daily[]) {
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function TodayPage() {
-  const [dailies, setDailies] = useState<Daily[]>(SEED_DAILIES);
-  const [tasks, setTasks] = useState<Task[]>(SEED_TASKS);
+  const [dailies, setDailies] = useState<Daily[]>(DEFAULT_DAILIES);
+  const [tasks, setTasks] = useState<Task[]>(DEFAULT_TASKS);
+  const [addingDaily, setAddingDaily] = useState(false);
+  const [newDailyName, setNewDailyName] = useState("");
+  const [newTaskLabel, setNewTaskLabel] = useState("");
 
   const toggleDaily = (id: number) =>
     setDailies((ds) =>
@@ -141,6 +142,25 @@ export default function TodayPage() {
   const toggleTask = (id: number) =>
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
+  const addDaily = () => {
+    const name = newDailyName.trim();
+    if (!name) return;
+    const accent = ACCENT_CYCLE[dailies.length % ACCENT_CYCLE.length];
+    setDailies((ds) => [
+      ...ds,
+      { id: Date.now(), name, desc: "", accent, streak: 0, past: [false, false, false, false, false, false], doneToday: false },
+    ]);
+    setNewDailyName("");
+    setAddingDaily(false);
+  };
+
+  const addTask = () => {
+    const label = newTaskLabel.trim();
+    if (!label) return;
+    setTasks((ts) => [...ts, { id: Date.now(), label, meta: "", done: false }]);
+    setNewTaskLabel("");
+  };
+
   const doneCount = dailies.filter((d) => d.doneToday).length;
   const totalDailies = dailies.length;
   const tasksLeft = tasks.filter((t) => !t.done).length;
@@ -151,7 +171,7 @@ export default function TodayPage() {
   const topStreak = Math.max(...dailies.map((d) => d.streak));
 
   return (
-    <div className="flex h-full overflow-hidden text-[var(--text-primary)] antialiased">
+    <div className="flex h-full overflow-hidden bg-[#F8F8FC] text-[var(--text-primary)] antialiased">
 
       {/* Sidebar — hidden on mobile, shown from md up */}
       <div className="hidden md:flex">
@@ -159,7 +179,7 @@ export default function TodayPage() {
       </div>
 
       {/* Main scroll area */}
-      <main className="flex-1 overflow-y-auto px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
+      <main className="flex-1 overflow-y-auto bg-[#F8F8FC] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
 
         {/* Header */}
         <header className="mb-7 md:mb-[30px]">
@@ -209,6 +229,32 @@ export default function TodayPage() {
                   onToggle={() => toggleDaily(d.id)}
                 />
               ))}
+            </div>
+
+            {/* Add daily */}
+            <div className="mt-3">
+              {addingDaily ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newDailyName}
+                    onChange={(e) => setNewDailyName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") { setAddingDaily(false); setNewDailyName(""); } }}
+                    placeholder="Daily name…"
+                    className="flex-1 px-3 py-2 text-[14px] bg-white border border-[var(--border)] rounded-[10px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                  />
+                  <button onClick={addDaily} className="px-3 py-2 text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer">Add</button>
+                  <button onClick={() => { setAddingDaily(false); setNewDailyName(""); }} className="px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[10px] cursor-pointer">Cancel</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingDaily(true)}
+                  className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-subtle)] hover:text-[var(--violet)] transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  <span className="text-[18px] leading-none">+</span> Add daily
+                </button>
+              )}
             </div>
           </section>
 
@@ -275,11 +321,12 @@ export default function TodayPage() {
                       >
                         {t.label}
                       </span>
-                      <span className="font-mono text-[10.5px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">
-                        {t.meta}
-                      </span>
+                      {t.meta && (
+                        <span className="font-mono text-[10.5px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">
+                          {t.meta}
+                        </span>
+                      )}
                     </div>
-                    {/* Checkbox on the right */}
                     <button
                       onClick={() => toggleTask(t.id)}
                       className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
@@ -292,6 +339,21 @@ export default function TodayPage() {
                     </button>
                   </div>
                 ))}
+
+                {/* Add task input — always visible */}
+                <div className="flex items-center gap-2 px-[14px] py-3 bg-white border border-dashed border-[var(--border-soft)] rounded-[12px]">
+                  <input
+                    type="text"
+                    value={newTaskLabel}
+                    onChange={(e) => setNewTaskLabel(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addTask(); }}
+                    placeholder="Add a task… (press Enter)"
+                    className="flex-1 text-[14px] bg-transparent border-none outline-none text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                  />
+                  {newTaskLabel.trim() && (
+                    <button onClick={addTask} className="text-[13px] font-semibold text-[var(--violet)] bg-transparent border-none cursor-pointer">Add</button>
+                  )}
+                </div>
               </div>
             </section>
 
