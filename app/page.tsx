@@ -136,6 +136,7 @@ export default function TodayPage() {
   const [dailies, setDailies] = useState<Daily[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [addingDaily, setAddingDaily] = useState(false);
   const [newDailyName, setNewDailyName] = useState("");
   const [newDailyDesc, setNewDailyDesc] = useState("");
@@ -150,65 +151,68 @@ export default function TodayPage() {
 
   async function loadData() {
     setLoading(true);
+    setLoadError(null);
+    try {
+      const today = localDate();
+      const since = localDate(60);
 
-    const today = localDate();
-    const since = localDate(60); // 60 days back — enough for streak + past-week dots
-
-    const [{ data: dailiesData }, { data: logsData }, { data: tasksData }] =
-      await Promise.all([
+      const [
+        { data: dailiesData, error: e1 },
+        { data: logsData,    error: e2 },
+        { data: tasksData,   error: e3 },
+      ] = await Promise.all([
         db().from("dailies").select("*").order("created_at", { ascending: true }),
         db().from("daily_logs").select("daily_id, date").gte("date", since),
         db().from("tasks").select("*").order("created_at", { ascending: true }),
       ]);
 
-    // Group logs by daily_id → Set<dateString>
-    const logsByDaily: Record<string, Set<string>> = {};
-    for (const log of logsData ?? []) {
-      if (!logsByDaily[log.daily_id]) logsByDaily[log.daily_id] = new Set();
-      logsByDaily[log.daily_id].add(log.date);
-    }
+      const firstError = e1 ?? e2 ?? e3;
+      if (firstError) throw new Error(firstError.message);
 
-    const mapped: Daily[] = (dailiesData ?? []).map((d) => {
-      const dates = logsByDaily[d.id as string] ?? new Set<string>();
-      const doneToday = dates.has(today);
-
-      // past: the 6 days before today, oldest first
-      const past = Array.from({ length: 6 }, (_, i) => dates.has(localDate(6 - i)));
-
-      // streak: consecutive days ending today (if done) or yesterday (if not)
-      let streak = 0;
-      let daysAgo = doneToday ? 0 : 1;
-      while (dates.has(localDate(daysAgo))) {
-        streak++;
-        daysAgo++;
+      // Group logs by daily_id → Set<dateString>
+      const logsByDaily: Record<string, Set<string>> = {};
+      for (const log of logsData ?? []) {
+        if (!logsByDaily[log.daily_id]) logsByDaily[log.daily_id] = new Set();
+        logsByDaily[log.daily_id].add(log.date);
       }
 
-      return {
-        id: d.id as string,
-        name: d.name as string,
-        desc: (d.description as string) ?? "",
-        accent: ((d.color as Accent) ?? "violet") as Accent,
-        streak,
-        past,
-        doneToday,
-      };
-    });
+      const mapped: Daily[] = (dailiesData ?? []).map((d) => {
+        const dates = logsByDaily[d.id as string] ?? new Set<string>();
+        const doneToday = dates.has(today);
+        const past = Array.from({ length: 6 }, (_, i) => dates.has(localDate(6 - i)));
+        let streak = 0;
+        let daysAgo = doneToday ? 0 : 1;
+        while (dates.has(localDate(daysAgo))) { streak++; daysAgo++; }
+        return {
+          id: d.id as string,
+          name: d.name as string,
+          desc: (d.description as string) ?? "",
+          accent: ((d.color as Accent) ?? "violet") as Accent,
+          streak,
+          past,
+          doneToday,
+        };
+      });
 
-    const mappedTasks: Task[] = (tasksData ?? []).map((t) => {
-      const parts: string[] = [];
-      if (t.category) parts.push(t.category as string);
-      if (t.deadline) parts.push(fmtDeadline(t.deadline as string));
-      return {
-        id: t.id as string,
-        label: t.title as string,
-        meta: parts.join(" · "),
-        done: (t.done as boolean) ?? false,
-      };
-    });
+      const mappedTasks: Task[] = (tasksData ?? []).map((t) => {
+        const parts: string[] = [];
+        if (t.category) parts.push(t.category as string);
+        if (t.deadline) parts.push(fmtDeadline(t.deadline as string));
+        return {
+          id: t.id as string,
+          label: t.title as string,
+          meta: parts.join(" · "),
+          done: (t.done as boolean) ?? false,
+        };
+      });
 
-    setDailies(mapped);
-    setTasks(mappedTasks);
-    setLoading(false);
+      setDailies(mapped);
+      setTasks(mappedTasks);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
   }
 
   /* ── Handlers ── */
@@ -324,17 +328,31 @@ export default function TodayPage() {
 
   /* ── Loading screen ── */
 
-  if (loading) {
+  if (loading || loadError) {
     return (
       <div className="flex h-full overflow-hidden bg-[#F8F8FC]">
         <div className="hidden md:flex">
           <Sidebar doneCount={0} totalDailies={0} activeNav="today" />
         </div>
         <main className="flex-1 flex items-center justify-center bg-[#F8F8FC]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
-            <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
-          </div>
+          {loadError ? (
+            <div className="flex flex-col items-center gap-3 max-w-sm text-center px-6">
+              <span className="text-[22px]">⚠️</span>
+              <span className="font-heading font-semibold text-[15px] text-[var(--text-primary)]">Couldn't connect to database</span>
+              <span className="font-mono text-[11px] text-[var(--text-subtle)] break-all">{loadError}</span>
+              <button
+                onClick={loadData}
+                className="mt-2 px-4 py-2 text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+              <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
+            </div>
+          )}
         </main>
       </div>
     );
