@@ -54,6 +54,10 @@ function getDateStr() {
   });
 }
 
+function fmtDeadline(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 /* ─── Bottom nav icons (mobile) ─────────────────────────────────────────────── */
 
 const BottomNavItems = [
@@ -124,7 +128,11 @@ export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>(DEFAULT_TASKS);
   const [addingDaily, setAddingDaily] = useState(false);
   const [newDailyName, setNewDailyName] = useState("");
+  const [newDailyDesc, setNewDailyDesc] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
   const [newTaskLabel, setNewTaskLabel] = useState("");
+  const [newTaskCategory, setNewTaskCategory] = useState("");
+  const [newTaskDeadline, setNewTaskDeadline] = useState("");
 
   const toggleDaily = (id: number) =>
     setDailies((ds) =>
@@ -142,23 +150,29 @@ export default function TodayPage() {
   const toggleTask = (id: number) =>
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
+  const cancelDaily = () => { setAddingDaily(false); setNewDailyName(""); setNewDailyDesc(""); };
+
   const addDaily = () => {
     const name = newDailyName.trim();
     if (!name) return;
     const accent = ACCENT_CYCLE[dailies.length % ACCENT_CYCLE.length];
     setDailies((ds) => [
       ...ds,
-      { id: Date.now(), name, desc: "", accent, streak: 0, past: [false, false, false, false, false, false], doneToday: false },
+      { id: Date.now(), name, desc: newDailyDesc.trim(), accent, streak: 0, past: [false, false, false, false, false, false], doneToday: false },
     ]);
-    setNewDailyName("");
-    setAddingDaily(false);
+    cancelDaily();
   };
+
+  const cancelTask = () => { setAddingTask(false); setNewTaskLabel(""); setNewTaskCategory(""); setNewTaskDeadline(""); };
 
   const addTask = () => {
     const label = newTaskLabel.trim();
     if (!label) return;
-    setTasks((ts) => [...ts, { id: Date.now(), label, meta: "", done: false }]);
-    setNewTaskLabel("");
+    const parts: string[] = [];
+    if (newTaskCategory.trim()) parts.push(newTaskCategory.trim());
+    if (newTaskDeadline) parts.push(fmtDeadline(newTaskDeadline));
+    setTasks((ts) => [...ts, { id: Date.now(), label, meta: parts.join(" · "), done: false }]);
+    cancelTask();
   };
 
   const doneCount = dailies.filter((d) => d.doneToday).length;
@@ -234,18 +248,30 @@ export default function TodayPage() {
             {/* Add daily */}
             <div className="mt-3">
               {addingDaily ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    type="text"
-                    value={newDailyName}
-                    onChange={(e) => setNewDailyName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") { setAddingDaily(false); setNewDailyName(""); } }}
-                    placeholder="Daily name…"
-                    className="flex-1 px-3 py-2 text-[14px] bg-white border border-[var(--border)] rounded-[10px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
-                  />
-                  <button onClick={addDaily} className="px-3 py-2 text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer">Add</button>
-                  <button onClick={() => { setAddingDaily(false); setNewDailyName(""); }} className="px-3 py-2 text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[10px] cursor-pointer">Cancel</button>
+                <div className="bg-white border border-[var(--border)] rounded-[14px] p-4 flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newDailyName}
+                      onChange={(e) => setNewDailyName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") cancelDaily(); }}
+                      placeholder="Name (required)"
+                      className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                    />
+                    <input
+                      type="text"
+                      value={newDailyDesc}
+                      onChange={(e) => setNewDailyDesc(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") cancelDaily(); }}
+                      placeholder="Description — optional"
+                      className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={cancelDaily} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
+                    <button onClick={addDaily} disabled={!newDailyName.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[9px] border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Add daily</button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -340,20 +366,48 @@ export default function TodayPage() {
                   </div>
                 ))}
 
-                {/* Add task input — always visible */}
-                <div className="flex items-center gap-2 px-[14px] py-3 bg-white border border-dashed border-[var(--border-soft)] rounded-[12px]">
-                  <input
-                    type="text"
-                    value={newTaskLabel}
-                    onChange={(e) => setNewTaskLabel(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addTask(); }}
-                    placeholder="Add a task… (press Enter)"
-                    className="flex-1 text-[14px] bg-transparent border-none outline-none text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
-                  />
-                  {newTaskLabel.trim() && (
-                    <button onClick={addTask} className="text-[13px] font-semibold text-[var(--violet)] bg-transparent border-none cursor-pointer">Add</button>
-                  )}
-                </div>
+                {/* Add task */}
+                {addingTask ? (
+                  <div className="bg-white border border-[var(--border)] rounded-[12px] p-4 flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newTaskLabel}
+                        onChange={(e) => setNewTaskLabel(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
+                        placeholder="Task name (required)"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      />
+                      <input
+                        type="text"
+                        value={newTaskCategory}
+                        onChange={(e) => setNewTaskCategory(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
+                        placeholder="Category — optional (e.g. Work, Personal)"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      />
+                      <input
+                        type="date"
+                        value={newTaskDeadline}
+                        onChange={(e) => setNewTaskDeadline(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] text-[var(--text-subtle)]"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={cancelTask} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
+                      <button onClick={addTask} disabled={!newTaskLabel.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[9px] border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Add task</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingTask(true)}
+                    className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-subtle)] hover:text-[var(--violet)] transition-colors bg-transparent border-none cursor-pointer mt-1"
+                  >
+                    <span className="text-[18px] leading-none">+</span> Add task
+                  </button>
+                )}
               </div>
             </section>
 
