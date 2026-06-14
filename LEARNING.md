@@ -123,3 +123,92 @@ A scaffolding tool (`npx create-next-app@latest`) that generates a new Next.js p
 
 ---
 <!-- NEW ENTRIES GO BELOW THIS LINE, GROUPED BY SLICE -->
+
+---
+
+## Slice 1 (Step 1b): Today Screen UI
+
+### `'use client'` directive
+In Next.js App Router, all components are server components by default — they run on the server and send plain HTML to the browser. When a component needs interactivity (clicks, typed input, local state), you add `'use client'` at the very top of the file. This tells Next.js to send that component's JavaScript to the browser so it can respond to events.
+
+**Why we used it:** The Today page tracks which dailies are checked off and which tasks are done — both need `useState`, which is browser-only. `Sidebar.tsx` also uses it for the account menu open/close state.
+
+**Where:** `app/page.tsx`, `components/Sidebar.tsx`, `components/DailyCard.tsx`.
+
+---
+
+### `useState` (React hook)
+A React function that gives a component its own memory. You call `useState(initialValue)` and get back two things: the current value, and a function to update it. Every time the value changes, React re-renders the component with the new value.
+
+**Why we used it:** We track the `dailies` array (which ones are checked) and `tasks` array (which ones are done) in the page component. When you tap a daily card, `toggleDaily` calls `setDailies` with the updated array, and the UI re-renders to show the check mark and updated streak.
+
+**Where:** `app/page.tsx` — `const [dailies, setDailies] = useState(SEED_DAILIES)` and `const [tasks, setTasks] = useState(SEED_TASKS)`.
+
+---
+
+### CSS custom properties (`var()`) for design tokens
+CSS custom properties (also called CSS variables) let you define a value once and reuse it everywhere. In `globals.css` we define things like `--violet: oklch(0.56 0.18 295)` in `:root`, then use `var(--violet)` anywhere in the CSS. Tailwind's arbitrary value syntax accepts these: `bg-[var(--violet)]`.
+
+**Why we used it:** The design uses OKLCH colors (see below) that aren't in Tailwind's default palette. Defining them as CSS variables means we write the OKLCH value once and reference the name everywhere — easier to change later, and avoids repeating long `oklch(...)` strings in every class.
+
+**Where:** `app/globals.css` defines the tokens (`:root { --violet: ... }`). Every component uses them via Tailwind arbitrary values like `text-[var(--text-primary)]`, `bg-[var(--border)]`.
+
+---
+
+### OKLCH color space
+Colors on screens are usually described in hex (`#7c3aed`) or HSL (hue, saturation, lightness). OKLCH is a newer, perceptually uniform color space — "perceptually uniform" means that if you change the lightness number by 10, the color *looks* 10% different to the human eye, not just mathematically different. This makes it much easier to create color palettes where all the habit accent colors feel equally vivid at the same lightness setting.
+
+**Why we used it:** The design specifies OKLCH colors for everything. Using OKLCH lets us pick accent colors for each daily (violet, blue, emerald, amber) that look visually balanced next to each other without manual tweaking.
+
+**Where:** `app/globals.css` — all color custom properties use `oklch(lightness chroma hue)` format, e.g. `oklch(0.56 0.18 295)` for violet.
+
+---
+
+### Tailwind arbitrary values
+Tailwind's utility classes cover common values (like `text-sm`, `p-4`), but sometimes you need a very specific value that's not in the default scale. Tailwind lets you write any value you want inside square brackets: `text-[15px]`, `rounded-[14px]`, `tracking-[-0.035em]`, `bg-[var(--violet)]`. This is called an "arbitrary value."
+
+**Why we used it:** The design specifies exact pixel sizes (`34px` buttons, `264px` sidebar width) and custom colors (`oklch(...)`) that don't exist as named Tailwind classes. Arbitrary values let us match the design precisely without writing separate CSS files.
+
+**Where:** Throughout all components — e.g. `w-[264px]`, `rounded-[14px]`, `text-[var(--text-primary)]`, `tracking-[-0.035em]`.
+
+---
+
+### `@utility` in Tailwind v4
+Tailwind v4 (the version this project uses) configures everything via CSS instead of a `tailwind.config.js` file. One feature is `@utility`, which lets you define a custom Tailwind utility class in `globals.css`. Any class defined this way is available globally and won't be removed by Tailwind's unused-class purging.
+
+**Why we used it:** The insight card has a complex violet gradient (`linear-gradient(150deg, oklch(...), oklch(...))`) that can't be expressed cleanly as a single Tailwind arbitrary value. Defining `.insight-card { background: ...; box-shadow: ...; }` as a `@utility` lets us just write `className="insight-card"` in the component.
+
+**Where:** `app/globals.css` — `@utility insight-card { ... }`. Used in `app/page.tsx` on the insight card div.
+
+---
+
+### Accent color token pattern (CSS variable inheritance)
+When you have multiple variants of a component that each use a different color (violet daily, blue daily, etc.), you can avoid passing color strings as inline styles by defining a CSS class that sets CSS variable values, then having child elements read those variables.
+
+We define `.accent-violet { --accent: oklch(...); }`, `.accent-blue { --accent: oklch(...); }` etc. The card wrapper gets `className="accent-violet"`, and child elements use `bg-[var(--accent)]`. CSS variables cascade down through the DOM, so children automatically get the right color.
+
+**Why we used it:** Tailwind can't generate classes for dynamic values at build time (it needs to see the class name literally in the source). This pattern gives us dynamic colors without inline styles and without dozens of conditional class strings.
+
+**Where:** `app/globals.css` defines `.accent-{name}` classes. `components/DailyCard.tsx` applies `accent-${accent}` on the wrapper div, and child spans use `bg-[var(--accent)]` and `bg-[var(--accent-empty)]`.
+
+---
+
+### SVG progress ring (stroke-dasharray / stroke-dashoffset)
+An SVG circle can be turned into a progress arc by using two CSS properties: `stroke-dasharray` sets the total dash length (equal to the circle's circumference), and `stroke-dashoffset` shifts where the dash starts. By animating the offset from full circumference (empty) to 0 (full circle), you get a progress ring.
+
+Circumference formula: `C = 2 × π × radius`. For `r=34`: `C ≈ 213.6px`.
+
+**Why we used it:** The sidebar's "Today's rhythm" section shows a small ring that fills as you complete more dailies. It's a core visual motif of the design.
+
+**Where:** `components/Sidebar.tsx` — the `<circle>` element with `strokeDasharray` and `strokeDashoffset` computed from `doneCount / totalDailies`. The `style` prop is used here specifically because these are dynamically computed SVG animation values.
+
+---
+
+### Responsive layout with Tailwind breakpoints
+Tailwind has responsive prefixes: `md:` applies a class only at `768px` and wider, `lg:` at `1024px`, etc. On mobile (below `md`), classes without a prefix apply. This lets you write mobile-first styles and progressively override them for larger screens.
+
+For example: `flex-col md:flex-row` means "stack vertically on mobile, side-by-side from md up."
+
+**Why we used it:** On desktop the sidebar is always visible; on mobile it would take too much space, so we hide it (`hidden md:flex`) and show a fixed bottom navigation bar instead (`flex md:hidden`).
+
+**Where:** `app/page.tsx` — the sidebar wrapper div (`hidden md:flex`), the bottom nav (`md:hidden`), and the two-column body (`flex-col md:flex-row`).
