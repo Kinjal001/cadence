@@ -1,0 +1,232 @@
+# Cadence — Project Plan
+
+**Live URL:** https://cadence-zeta-ruby.vercel.app/
+**Repo:** https://github.com/Kinjal001/cadence
+**Stack:** Next.js 16 (App Router, TypeScript) · Tailwind CSS · Supabase · Vercel
+**v1 Scope:** Habits, Dailies, Tasks — Goals and Projects deferred to later
+
+---
+
+## Design Direction
+
+- **Theme:** Clean light, OKLCH color space for perceptually uniform habit colors
+- **Fonts:** Bricolage Grotesque (headings/display) · Plus Jakarta Sans (body/UI) · JetBrains Mono (numbers, streaks, stats)
+- **Motifs:** Completion rings on habits, streak counters, subtle animation on check-in
+
+---
+
+## Slices
+
+---
+
+### Slice 0: Project Setup — ✅ Complete
+
+**Goal:** Scaffold the project, connect to GitHub, and get a live deployment URL.
+
+- [x] Next.js 16 with TypeScript and App Router
+- [x] Tailwind CSS configured
+- [x] Placeholder homepage ("Cadence / keep the rhythm")
+- [x] GitHub repository connected: github.com/Kinjal001/cadence
+- [x] Deployed to Vercel: https://cadence-zeta-ruby.vercel.app/
+
+**Data model additions:** none
+
+**Done when:** Opening the Vercel URL shows the Cadence placeholder page. ✅
+
+---
+
+### Slice 1: Habits — Today View with Check-in and Streaks
+
+**Goal:** The core loop — see today's habits, tap to check them off, watch a streak grow. Backed by Supabase so data persists across sessions.
+
+This slice is split into two sub-steps. Complete them in order.
+
+#### Step 1a: Supabase setup + Habits CRUD
+
+- [ ] Create a Supabase project and get the project URL + anon key
+- [ ] Add env vars to `.env.local` and the Vercel dashboard (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- [ ] Install `@supabase/supabase-js` and create a shared client utility
+- [ ] Run the `habits` and `habit_logs` migrations in the Supabase SQL editor (schema below)
+- [ ] Build a `/habits` route with a list of all habits
+- [ ] "Add habit" form: name, color (preset OKLCH palette), optional emoji icon
+- [ ] Saving a habit writes a row to Supabase; the list re-fetches and shows it
+
+#### Step 1b: Today check-in + streaks + completion ring UI
+
+- [ ] Add the three fonts via `next/font/google` in `layout.tsx`
+- [ ] Define OKLCH color tokens as CSS custom properties in `globals.css`
+- [ ] Today view (make `/` the landing page): shows habits due today
+- [ ] Tapping a habit inserts a row in `habit_logs` for today's date
+- [ ] Completion ring SVG component — animates 0 → full circle on check-in
+- [ ] Streak counter: query `habit_logs` for consecutive days, display with JetBrains Mono
+- [ ] Undo check-in: tap again to delete today's log row and reset the ring
+
+**Data model additions:**
+
+```sql
+-- Run in Supabase SQL editor
+
+create table habits (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null,       -- hardcoded placeholder until Slice 6 adds real auth
+  name        text not null,
+  color       text not null,       -- oklch string, e.g. 'oklch(0.72 0.15 250)'
+  icon        text,                -- emoji or null
+  sort_order  integer default 0,
+  archived_at timestamptz,
+  created_at  timestamptz default now()
+);
+
+create table habit_logs (
+  id         uuid primary key default gen_random_uuid(),
+  habit_id   uuid references habits(id) on delete cascade,
+  date       date not null,
+  created_at timestamptz default now(),
+  unique(habit_id, date)           -- one check-in per habit per day
+);
+```
+
+**Done when:** You can add a habit, see it on the Today view, tap it to fill its completion ring, and after two consecutive days the streak counter reads 2.
+
+---
+
+### Slice 2: Dailies — Pinned Must-Do Items
+
+**Goal:** A separate, always-visible checklist of non-negotiable daily items (e.g. "Take vitamins", "10 min walk"). Simpler than habits — no streaks, just a fresh list each day.
+
+- [ ] Run the `dailies` and `daily_logs` migrations (schema below)
+- [ ] Add a Dailies section to the Today view (or a `/dailies` sub-route)
+- [ ] Add/rename/delete a daily item
+- [ ] Reorder items (up/down arrows for v1; drag-to-reorder is a nice-to-have)
+- [ ] Check off a daily for today — it resets automatically at midnight (no log row = unchecked)
+- [ ] Visual treatment: simple filled checkbox, no ring, clearly distinct from Habits
+
+**Data model additions:**
+
+```sql
+create table dailies (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null,
+  name        text not null,
+  sort_order  integer default 0,
+  archived_at timestamptz,
+  created_at  timestamptz default now()
+);
+
+create table daily_logs (
+  id         uuid primary key default gen_random_uuid(),
+  daily_id   uuid references dailies(id) on delete cascade,
+  date       date not null,
+  created_at timestamptz default now(),
+  unique(daily_id, date)
+);
+```
+
+**Done when:** You can add "Drink 2L water" to Dailies, check it off today, and see it unchecked again the following morning.
+
+---
+
+### Slice 3: Tasks — Add, Complete, and Filter
+
+**Goal:** A lightweight task list — add tasks with optional due dates, mark them done, filter by status. No projects, labels, or priorities in v1.
+
+- [ ] Run the `tasks` migration (schema below)
+- [ ] `/tasks` route with a scrollable task list
+- [ ] Quick-add form: title + optional due date picker
+- [ ] Mark task complete: strikethrough animation, task moves to Completed section
+- [ ] Delete task (swipe or trash icon)
+- [ ] Filter tabs: **All · Active · Completed**
+- [ ] Overdue badge: red indicator if due date is in the past and task is still active
+
+**Data model additions:**
+
+```sql
+create table tasks (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null,
+  title        text not null,
+  due_date     date,
+  completed_at timestamptz,
+  created_at   timestamptz default now()
+);
+```
+
+**Done when:** You can add "Buy groceries" with a due date of tomorrow, mark it done, see it move to Completed, and confirm that a past-due uncompleted task shows the overdue indicator.
+
+---
+
+### Slice 4: Insights — Weekly Stats and Consistency View
+
+**Goal:** A read-only view that surfaces how you're doing — completion rates, streaks over the last four weeks, and a week summary. No new data — everything is derived from existing tables.
+
+- [ ] `/insights` route
+- [ ] This week's summary card: habits completed today (X of Y), tasks closed this week
+- [ ] Per-habit consistency grid: GitHub-style heatmap for the last 28 days
+- [ ] Streak stats per habit: Current streak · Longest streak (using JetBrains Mono for numbers)
+- [ ] Dailies completion rate: % of days all dailies were finished this week
+
+**Data model additions:** none (reads from `habit_logs`, `daily_logs`, `tasks`)
+
+**Done when:** After a few days of use, `/insights` shows a partially filled heatmap, accurate streak numbers, and a tasks-closed count that matches what you actually completed.
+
+---
+
+### Slice 5: PWA Setup — Installable and Offline-Friendly
+
+**Goal:** Make Cadence installable to the home screen on mobile and desktop, with a cached shell so the Today view loads instantly even without a network connection.
+
+- [ ] `public/manifest.json` with name, short name, icons, theme color (`oklch`-based hex fallback), display: `standalone`
+- [ ] App icons: at minimum 192×192 and 512×512 PNG (can use a simple wordmark for v1)
+- [ ] Wire up the manifest in `layout.tsx` via `<link rel="manifest">`
+- [ ] Service worker via `next-pwa` package (or manual registration in `layout.tsx`)
+- [ ] Offline fallback page at `/offline` — friendly message + cached ring logo
+- [ ] Cache the Today view shell so it renders while Supabase data loads
+- [ ] Verify "Add to Home Screen" prompt appears on Chrome/Safari mobile
+
+**Data model additions:** none
+
+**Done when:** On your phone, you can install Cadence to the home screen, open it in airplane mode, and see the Today view shell render (with a loading state for the data) rather than a browser error page.
+
+---
+
+### Slice 6: Auth — Multi-Device Access
+
+**Goal:** Add Supabase Auth so your data follows you across devices. Deliberately deferred — single-device use should feel solid first.
+
+- [ ] Enable Supabase Auth in the dashboard (magic link email, or Google OAuth)
+- [ ] Sign-in page at `/login` using Supabase's auth helpers
+- [ ] Middleware to protect all routes — redirect unauthenticated users to `/login`
+- [ ] Enable Row Level Security (RLS) on all tables
+- [ ] Add RLS policies: users can only read/write their own rows
+- [ ] Replace the hardcoded `user_id` placeholder with `auth.uid()` everywhere
+- [ ] Sign-out button in the nav
+
+**Data model additions:**
+
+```sql
+-- Enable RLS and add policies on every table
+-- (repeat this pattern for dailies, daily_logs, habit_logs, tasks)
+
+alter table habits enable row level security;
+
+create policy "users see own habits"
+  on habits for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+```
+
+**Done when:** You sign in on a second device (or an incognito window), and your habits, dailies, and tasks are all there. A signed-out visitor hitting `/` is redirected to `/login`.
+
+---
+
+## Decisions Log
+
+| Date | Decision | Reason |
+|------|----------|--------|
+| 2026-06-14 | Started fresh with Next.js, retiring the Flutter project (Jarvis) | Web-first means no native build toolchain, instant deploys, easier to iterate with AI pair programming |
+| 2026-06-14 | Supabase as the backend | Postgres + auth + real-time in one service; generous free tier; first-class Next.js support |
+| 2026-06-14 | Auth deferred to Slice 6 | Single-device use covers the v1 use case; adding auth earlier adds friction without shipping value |
+| 2026-06-14 | Goals and Projects deferred past v1 | The Habits + Dailies + Tasks loop needs to feel right before adding planning layers on top |
+| 2026-06-14 | OKLCH color space for habit colors | Perceptually uniform — two habits at the same lightness/chroma but different hues look equally vivid, unlike HSL |
+| 2026-06-14 | Bricolage Grotesque + Plus Jakarta Sans | Bricolage adds personality to headings; Jakarta Sans is clean and highly legible for UI text at small sizes |
+| 2026-06-14 | JetBrains Mono for numbers | Tabular figures and monospace rhythm make streak counts and stats feel precise and data-y |
