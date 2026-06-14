@@ -53,13 +53,19 @@ This slice is split into two sub-steps. Complete them in order.
 
 #### Step 1b: Today check-in + streaks + completion ring UI
 
-- [ ] Add the three fonts via `next/font/google` in `layout.tsx`
-- [ ] Define OKLCH color tokens as CSS custom properties in `globals.css`
-- [ ] Today view (make `/` the landing page): shows dailies due today
-- [ ] Tapping a daily inserts a row in `daily_logs` for today's date
-- [ ] Completion ring SVG component — animates 0 → full circle on check-in
-- [ ] Streak counter: query `daily_logs` for consecutive days, display with JetBrains Mono
-- [ ] Undo check-in: tap again to delete today's log row and reset the ring
+- [x] Add the three fonts via `next/font/google` in `layout.tsx`
+- [x] Define OKLCH color tokens as CSS custom properties in `globals.css`
+- [x] Today view (make `/` the landing page): shows dailies due today
+- [x] Tapping a daily toggles done state (React useState — Supabase in Step 1a)
+- [x] Completion ring SVG component — animates in sidebar on check-in
+- [x] Streak counter: increments/decrements on toggle, display with JetBrains Mono
+- [x] Undo check-in: tap again to uncheck the daily and decrement streak
+- [x] 4 default dailies (Movement, Healthy Food, Journaling, Learning) with distinct accent colors
+- [x] 3 default tasks with inline toggle
+- [x] Add daily: text input form with Enter/Add/Cancel
+- [x] Add task: always-visible input row, Enter to submit
+- [x] Light theme enforced (color-scheme: light, explicit #F8F8FC backgrounds)
+- [x] All violet hue references updated to oklch hue 255 as specified
 
 **Data model additions:**
 

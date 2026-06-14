@@ -204,6 +204,15 @@ Circumference formula: `C = 2 × π × radius`. For `r=34`: `C ≈ 213.6px`.
 
 ---
 
+### `color-scheme: light`
+A CSS property set on `:root` that tells the browser "this page is always light." Without it, if a user's OS is in dark mode, the browser overrides default element colors (scrollbars, form controls, and even `background` on `<html>`) to dark values — even if you haven't written any dark-mode CSS. Adding `color-scheme: light` in `:root` opts the entire page out of the system dark theme.
+
+**Why we used it:** The app was rendering a black background on machines with OS-level dark mode enabled, because Tailwind's `@import "tailwindcss"` doesn't set `color-scheme`. Adding it to `:root` in `globals.css` was the single fix that locked the app to a light theme.
+
+**Where:** `app/globals.css` — `:root { color-scheme: light; }`.
+
+---
+
 ### Responsive layout with Tailwind breakpoints
 Tailwind has responsive prefixes: `md:` applies a class only at `768px` and wider, `lg:` at `1024px`, etc. On mobile (below `md`), classes without a prefix apply. This lets you write mobile-first styles and progressively override them for larger screens.
 
@@ -212,3 +221,21 @@ For example: `flex-col md:flex-row` means "stack vertically on mobile, side-by-s
 **Why we used it:** On desktop the sidebar is always visible; on mobile it would take too much space, so we hide it (`hidden md:flex`) and show a fixed bottom navigation bar instead (`flex md:hidden`).
 
 **Where:** `app/page.tsx` — the sidebar wrapper div (`hidden md:flex`), the bottom nav (`md:hidden`), and the two-column body (`flex-col md:flex-row`).
+
+---
+
+### Controlled inputs and form state (React)
+A "controlled input" is an `<input>` whose value is always set from React state. You wire `value={stateVar}` and `onChange={(e) => setStateVar(e.target.value)}` together. The component is the single source of truth — the browser's input box just reflects what React says.
+
+**Why we used it:** The "Add daily" name field and the "Add task" field both need their values available to the submit handler. With controlled inputs, `addDaily()` simply reads `newDailyName` from state — no `ref` or DOM query needed.
+
+**Where:** `app/page.tsx` — the `newDailyName` and `newTaskLabel` state vars wired to their `<input>` elements.
+
+---
+
+### `onKeyDown` for keyboard submit
+Instead of a `<form onSubmit>`, you can listen for `e.key === "Enter"` inside `onKeyDown` on an input and call the submit handler directly. Combined with `e.key === "Escape"` to cancel, this gives fast keyboard flow without a `<form>` element.
+
+**Why we used it:** The task input row is designed to feel like a quick-capture field — press Enter to add, no button click required. The Add-daily form also supports Escape to dismiss.
+
+**Where:** `app/page.tsx` — both input elements' `onKeyDown` handlers.
