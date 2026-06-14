@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DailyCard, type Accent } from "@/components/DailyCard";
 
@@ -156,9 +156,9 @@ export default function TodayPage() {
 
     const [{ data: dailiesData }, { data: logsData }, { data: tasksData }] =
       await Promise.all([
-        supabase.from("dailies").select("*").order("created_at", { ascending: true }),
-        supabase.from("daily_logs").select("daily_id, date").gte("date", since),
-        supabase.from("tasks").select("*").order("created_at", { ascending: true }),
+        db().from("dailies").select("*").order("created_at", { ascending: true }),
+        db().from("daily_logs").select("daily_id, date").gte("date", since),
+        db().from("tasks").select("*").order("created_at", { ascending: true }),
       ]);
 
     // Group logs by daily_id → Set<dateString>
@@ -232,9 +232,9 @@ export default function TodayPage() {
     );
 
     if (!daily.doneToday) {
-      await supabase.from("daily_logs").insert({ daily_id: id, date: today });
+      await db().from("daily_logs").insert({ daily_id: id, date: today });
     } else {
-      await supabase.from("daily_logs").delete().eq("daily_id", id).eq("date", today);
+      await db().from("daily_logs").delete().eq("daily_id", id).eq("date", today);
     }
   };
 
@@ -242,7 +242,7 @@ export default function TodayPage() {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-    await supabase.from("tasks").update({ done: !task.done }).eq("id", id);
+    await db().from("tasks").update({ done: !task.done }).eq("id", id);
   };
 
   const cancelDaily = () => {
@@ -256,7 +256,7 @@ export default function TodayPage() {
     if (!name) return;
     const accent = ACCENT_CYCLE[dailies.length % ACCENT_CYCLE.length];
 
-    const { data } = await supabase
+    const { data } = await db()
       .from("dailies")
       .insert({ name, description: newDailyDesc.trim() || null, color: accent })
       .select()
@@ -293,7 +293,7 @@ export default function TodayPage() {
     if (newTaskCategory.trim()) parts.push(newTaskCategory.trim());
     if (newTaskDeadline) parts.push(fmtDeadline(newTaskDeadline));
 
-    const { data } = await supabase
+    const { data } = await db()
       .from("tasks")
       .insert({
         title: label,
