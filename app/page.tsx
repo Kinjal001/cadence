@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DailyCard, type Accent } from "@/components/DailyCard";
 
-/* ─── Static seed data ─────────────────────────────────────────────────────── */
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
 
 interface Daily {
-  id: number;
+  id: string;
   name: string;
   desc: string;
   accent: Accent;
@@ -17,7 +18,7 @@ interface Daily {
 }
 
 interface Task {
-  id: number;
+  id: string;
   label: string;
   meta: string;
   done: boolean;
@@ -25,20 +26,18 @@ interface Task {
 
 const ACCENT_CYCLE: Accent[] = ["violet", "blue", "emerald", "amber"];
 
-const DEFAULT_DAILIES: Daily[] = [
-  { id: 1, name: "Movement",     desc: "Any exercise counts",          accent: "violet",  streak: 0, past: [false, false, false, false, false, false], doneToday: false },
-  { id: 2, name: "Healthy Food", desc: "Eat well at least twice today", accent: "emerald", streak: 0, past: [false, false, false, false, false, false], doneToday: false },
-  { id: 3, name: "Journaling",   desc: "Three lines before bed",       accent: "amber",   streak: 0, past: [false, false, false, false, false, false], doneToday: false },
-  { id: 4, name: "Learning",     desc: "Read, watch, or practice",     accent: "blue",    streak: 0, past: [false, false, false, false, false, false], doneToday: false },
-];
-
-const DEFAULT_TASKS: Task[] = [
-  { id: 1, label: "Plan out today's priorities", meta: "Personal", done: false },
-  { id: 2, label: "Check in with a friend",      meta: "Social",   done: false },
-  { id: 3, label: "15-min tidy up",              meta: "Home",     done: false },
-];
-
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
+
+// Returns YYYY-MM-DD in local time, optionally N days in the past.
+// Using local time matters: toISOString() gives UTC, which shifts the date for UTC+5:30.
+function localDate(daysAgo = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function getGreeting(name: string) {
   const hr = new Date().getHours();
@@ -55,7 +54,29 @@ function getDateStr() {
 }
 
 function fmtDeadline(iso: string) {
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const MILESTONES = [7, 14, 21, 30, 50, 75, 100, 150, 200, 365];
+
+function getInsight(dailies: Daily[]) {
+  if (dailies.length === 0) {
+    return {
+      top: { id: "", name: "–", desc: "", accent: "violet" as Accent, streak: 0, past: [], doneToday: false },
+      nextMilestone: 7,
+      daysToGo: 7,
+      barPct: 0,
+    };
+  }
+  const top = dailies.reduce((m, d) => (d.streak > m.streak ? d : m), dailies[0]);
+  const nextMilestone =
+    MILESTONES.find((m) => m > top.streak) ?? Math.ceil((top.streak + 1) / 50) * 50;
+  const daysToGo = nextMilestone - top.streak;
+  const barPct = Math.round((top.streak / nextMilestone) * 100);
+  return { top, nextMilestone, daysToGo, barPct };
 }
 
 /* ─── Bottom nav icons (mobile) ─────────────────────────────────────────────── */
@@ -107,25 +128,12 @@ const BottomNavItems = [
   },
 ];
 
-/* ─── Insight card data ─────────────────────────────────────────────────────── */
-
-const MILESTONES = [7, 14, 21, 30, 50, 75, 100, 150, 200, 365];
-
-function getInsight(dailies: Daily[]) {
-  const top = dailies.reduce((m, d) => (d.streak > m.streak ? d : m), dailies[0]);
-  const nextMilestone =
-    MILESTONES.find((m) => m > top.streak) ??
-    Math.ceil((top.streak + 1) / 50) * 50;
-  const daysToGo = nextMilestone - top.streak;
-  const barPct = Math.round((top.streak / nextMilestone) * 100);
-  return { top, nextMilestone, daysToGo, barPct };
-}
-
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function TodayPage() {
-  const [dailies, setDailies] = useState<Daily[]>(DEFAULT_DAILIES);
-  const [tasks, setTasks] = useState<Task[]>(DEFAULT_TASKS);
+  const [dailies, setDailies] = useState<Daily[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [addingDaily, setAddingDaily] = useState(false);
   const [newDailyName, setNewDailyName] = useState("");
   const [newDailyDesc, setNewDailyDesc] = useState("");
@@ -134,7 +142,81 @@ export default function TodayPage() {
   const [newTaskCategory, setNewTaskCategory] = useState("");
   const [newTaskDeadline, setNewTaskDeadline] = useState("");
 
-  const toggleDaily = (id: number) =>
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+
+    const today = localDate();
+    const since = localDate(60); // 60 days back — enough for streak + past-week dots
+
+    const [{ data: dailiesData }, { data: logsData }, { data: tasksData }] =
+      await Promise.all([
+        supabase.from("dailies").select("*").order("created_at", { ascending: true }),
+        supabase.from("daily_logs").select("daily_id, date").gte("date", since),
+        supabase.from("tasks").select("*").order("created_at", { ascending: true }),
+      ]);
+
+    // Group logs by daily_id → Set<dateString>
+    const logsByDaily: Record<string, Set<string>> = {};
+    for (const log of logsData ?? []) {
+      if (!logsByDaily[log.daily_id]) logsByDaily[log.daily_id] = new Set();
+      logsByDaily[log.daily_id].add(log.date);
+    }
+
+    const mapped: Daily[] = (dailiesData ?? []).map((d) => {
+      const dates = logsByDaily[d.id as string] ?? new Set<string>();
+      const doneToday = dates.has(today);
+
+      // past: the 6 days before today, oldest first
+      const past = Array.from({ length: 6 }, (_, i) => dates.has(localDate(6 - i)));
+
+      // streak: consecutive days ending today (if done) or yesterday (if not)
+      let streak = 0;
+      let daysAgo = doneToday ? 0 : 1;
+      while (dates.has(localDate(daysAgo))) {
+        streak++;
+        daysAgo++;
+      }
+
+      return {
+        id: d.id as string,
+        name: d.name as string,
+        desc: (d.description as string) ?? "",
+        accent: ((d.color as Accent) ?? "violet") as Accent,
+        streak,
+        past,
+        doneToday,
+      };
+    });
+
+    const mappedTasks: Task[] = (tasksData ?? []).map((t) => {
+      const parts: string[] = [];
+      if (t.category) parts.push(t.category as string);
+      if (t.deadline) parts.push(fmtDeadline(t.deadline as string));
+      return {
+        id: t.id as string,
+        label: t.title as string,
+        meta: parts.join(" · "),
+        done: (t.done as boolean) ?? false,
+      };
+    });
+
+    setDailies(mapped);
+    setTasks(mappedTasks);
+    setLoading(false);
+  }
+
+  /* ── Handlers ── */
+
+  const toggleDaily = async (id: string) => {
+    const daily = dailies.find((d) => d.id === id);
+    if (!daily) return;
+    const today = localDate();
+
+    // Optimistic update first — instant feel
     setDailies((ds) =>
       ds.map((d) =>
         d.id === id
@@ -147,42 +229,116 @@ export default function TodayPage() {
       )
     );
 
-  const toggleTask = (id: number) =>
+    if (!daily.doneToday) {
+      await supabase.from("daily_logs").insert({ daily_id: id, date: today });
+    } else {
+      await supabase.from("daily_logs").delete().eq("daily_id", id).eq("date", today);
+    }
+  };
+
+  const toggleTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+    await supabase.from("tasks").update({ done: !task.done }).eq("id", id);
+  };
 
-  const cancelDaily = () => { setAddingDaily(false); setNewDailyName(""); setNewDailyDesc(""); };
+  const cancelDaily = () => {
+    setAddingDaily(false);
+    setNewDailyName("");
+    setNewDailyDesc("");
+  };
 
-  const addDaily = () => {
+  const addDaily = async () => {
     const name = newDailyName.trim();
     if (!name) return;
     const accent = ACCENT_CYCLE[dailies.length % ACCENT_CYCLE.length];
-    setDailies((ds) => [
-      ...ds,
-      { id: Date.now(), name, desc: newDailyDesc.trim(), accent, streak: 0, past: [false, false, false, false, false, false], doneToday: false },
-    ]);
+
+    const { data } = await supabase
+      .from("dailies")
+      .insert({ name, description: newDailyDesc.trim() || null, color: accent })
+      .select()
+      .single();
+
+    if (data) {
+      setDailies((ds) => [
+        ...ds,
+        {
+          id: data.id as string,
+          name: data.name as string,
+          desc: (data.description as string) ?? "",
+          accent,
+          streak: 0,
+          past: [false, false, false, false, false, false],
+          doneToday: false,
+        },
+      ]);
+    }
     cancelDaily();
   };
 
-  const cancelTask = () => { setAddingTask(false); setNewTaskLabel(""); setNewTaskCategory(""); setNewTaskDeadline(""); };
+  const cancelTask = () => {
+    setAddingTask(false);
+    setNewTaskLabel("");
+    setNewTaskCategory("");
+    setNewTaskDeadline("");
+  };
 
-  const addTask = () => {
+  const addTask = async () => {
     const label = newTaskLabel.trim();
     if (!label) return;
     const parts: string[] = [];
     if (newTaskCategory.trim()) parts.push(newTaskCategory.trim());
     if (newTaskDeadline) parts.push(fmtDeadline(newTaskDeadline));
-    setTasks((ts) => [...ts, { id: Date.now(), label, meta: parts.join(" · "), done: false }]);
+
+    const { data } = await supabase
+      .from("tasks")
+      .insert({
+        title: label,
+        category: newTaskCategory.trim() || null,
+        deadline: newTaskDeadline || null,
+      })
+      .select()
+      .single();
+
+    if (data) {
+      setTasks((ts) => [
+        ...ts,
+        { id: data.id as string, label: data.title as string, meta: parts.join(" · "), done: false },
+      ]);
+    }
     cancelTask();
   };
+
+  /* ── Derived values ── */
 
   const doneCount = dailies.filter((d) => d.doneToday).length;
   const totalDailies = dailies.length;
   const tasksLeft = tasks.filter((t) => !t.done).length;
   const { top, nextMilestone, daysToGo, barPct } = getInsight(dailies);
-
   const greeting = getGreeting("Kinjal");
   const dateStr = getDateStr();
-  const topStreak = Math.max(...dailies.map((d) => d.streak));
+  const topStreak = dailies.length > 0 ? Math.max(...dailies.map((d) => d.streak)) : 0;
+
+  /* ── Loading screen ── */
+
+  if (loading) {
+    return (
+      <div className="flex h-full overflow-hidden bg-[#F8F8FC]">
+        <div className="hidden md:flex">
+          <Sidebar doneCount={0} totalDailies={0} activeNav="today" />
+        </div>
+        <main className="flex-1 flex items-center justify-center bg-[#F8F8FC]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+            <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  /* ── Main render ── */
 
   return (
     <div className="flex h-full overflow-hidden bg-[#F8F8FC] text-[var(--text-primary)] antialiased">
@@ -229,6 +385,12 @@ export default function TodayPage() {
                 {doneCount}/{totalDailies} done
               </span>
             </div>
+
+            {dailies.length === 0 && !addingDaily && (
+              <p className="text-[13px] text-[var(--text-subtle)] mb-4">
+                No dailies yet — add your first one below.
+              </p>
+            )}
 
             <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 232px), 1fr))" }}>
               {dailies.map((d) => (
@@ -332,6 +494,12 @@ export default function TodayPage() {
               </div>
 
               <div className="flex flex-col gap-2">
+                {tasks.length === 0 && !addingTask && (
+                  <p className="text-[13px] text-[var(--text-subtle)] mb-2">
+                    No tasks yet — add one below.
+                  </p>
+                )}
+
                 {tasks.map((t) => (
                   <div
                     key={t.id}
@@ -392,7 +560,7 @@ export default function TodayPage() {
                         value={newTaskDeadline}
                         onChange={(e) => setNewTaskDeadline(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
-                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] text-[var(--text-subtle)]"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                       />
                     </div>
                     <div className="flex justify-end gap-2">

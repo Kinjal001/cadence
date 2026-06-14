@@ -41,15 +41,19 @@
 
 This slice is split into two sub-steps. Complete them in order.
 
-#### Step 1a: Supabase setup + Dailies CRUD
+#### Step 1a: Supabase setup + Dailies CRUD — 🔄 In Progress
 
 - [ ] Create a Supabase project and get the project URL + anon key
 - [ ] Add env vars to `.env.local` and the Vercel dashboard (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
-- [ ] Install `@supabase/supabase-js` and create a shared client utility
-- [ ] Run the `dailies` and `daily_logs` migrations in the Supabase SQL editor (schema below)
-- [ ] Build a `/dailies` route with a list of all dailies
-- [ ] "Add daily" form: name, color (preset OKLCH palette), optional emoji icon
-- [ ] Saving a daily writes a row to Supabase; the list re-fetches and shows it
+- [x] Install `@supabase/supabase-js` and create `lib/supabase.ts` client
+- [ ] Run the `dailies`, `daily_logs`, and `tasks` migrations in the Supabase SQL editor (schema below)
+- [x] Today screen reads dailies + logs + tasks from Supabase on mount
+- [x] Toggle daily done/not-done writes to `daily_logs` (insert/delete)
+- [x] Toggle task done writes to `tasks` table (`done` column)
+- [x] Add daily writes to `dailies` table
+- [x] Add task writes to `tasks` table
+- [x] Streak computed from `daily_logs` (consecutive days, timezone-safe)
+- [x] 7-day dot row computed from `daily_logs`
 
 #### Step 1b: Today check-in + streaks + completion ring UI
 

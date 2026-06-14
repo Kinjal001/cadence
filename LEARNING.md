@@ -233,6 +233,60 @@ A "controlled input" is an `<input>` whose value is always set from React state.
 
 ---
 
+### Supabase client (`@supabase/supabase-js`)
+Supabase is a hosted Postgres database with a JavaScript client library. `createClient(url, anonKey)` gives you an object you can use to query and mutate any table in your database using a chainable API — no SQL required in most cases.
+
+**Why we used it:** It's Cadence's backend — all dailies, logs, and tasks persist here so data survives page refreshes and eventually multiple devices (once auth is added in Slice 5).
+
+**Where:** `lib/supabase.ts` creates and exports the single shared client. `app/page.tsx` imports it for all reads and writes.
+
+---
+
+### Environment variables (`NEXT_PUBLIC_` prefix)
+Next.js reads `.env.local` at build/dev time and injects variables into the app. Variables prefixed with `NEXT_PUBLIC_` are included in the client-side JavaScript bundle — safe for public API keys like Supabase's anon key. Variables without the prefix are server-only. `.env.local` is gitignored by `.env*` in `.gitignore`.
+
+**Why we used it:** The Supabase URL and anon key need to reach the browser (since we use the browser Supabase client). `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe to expose — the anon key only allows what Supabase RLS policies permit.
+
+**Where:** `.env.local` (local values, gitignored). Vercel dashboard (production values, set manually).
+
+---
+
+### `useEffect` for data fetching in client components
+In Next.js App Router, a `'use client'` component can't be `async`. To fetch data on mount, you use `useEffect(() => { fetchData(); }, [])` — the empty array means "run once after the component first renders." Inside, you call an async function that writes results into state.
+
+**Why we used it:** `page.tsx` is a client component (it needs `useState` for all the interactive form state). We can't make it `async`, so `useEffect` + a `loadData()` function is the right pattern for initial data fetching.
+
+**Where:** `app/page.tsx` — `useEffect(() => { loadData(); }, [])`.
+
+---
+
+### Optimistic updates
+An "optimistic update" means you update the UI *immediately* when a user clicks, before the server confirms the change. Then you fire the actual database write in the background. If the write succeeds, nothing changes visually. If it fails, you'd roll back (we don't handle rollback yet — that's fine for a personal app).
+
+**Why we used it:** Toggling a daily or task feels instant. Without this, there would be a visible delay while the Supabase round-trip completes (~100–300ms). With it, the check appears the moment you tap.
+
+**Where:** `toggleDaily` and `toggleTask` in `app/page.tsx` — `setDailies(...)` / `setTasks(...)` is called before `await supabase...`.
+
+---
+
+### Timezone-safe local date strings
+`new Date().toISOString()` returns the date in UTC. For someone in UTC+5:30, midnight local time is 18:30 UTC the *previous* day — so `toISOString().split('T')[0]` can give yesterday's date. The fix is to build the date string from local getters (`getFullYear()`, `getMonth()`, `getDate()`), which always reflect the user's local clock.
+
+**Why we used it:** Cadence's core feature is daily check-ins by date. Getting the date wrong by one day would mean a check-in at 11pm appearing on the wrong day in the database.
+
+**Where:** `localDate(daysAgo?)` helper in `app/page.tsx` — used for today's date, the "since" query bound, past-week dots, and streak computation.
+
+---
+
+### `Promise.all` for parallel fetches
+`Promise.all([p1, p2, p3])` fires all three promises at the same time and waits for all of them to resolve. This is faster than `await p1; await p2; await p3` (sequential), which would take 3× the round-trip time.
+
+**Why we used it:** On page load we need dailies, daily_logs, and tasks — three independent Supabase queries. Running them in parallel halves the loading time.
+
+**Where:** `loadData()` in `app/page.tsx` — `const [a, b, c] = await Promise.all([...])`.
+
+---
+
 ### `onKeyDown` for keyboard submit
 Instead of a `<form onSubmit>`, you can listen for `e.key === "Enter"` inside `onKeyDown` on an input and call the submit handler directly. Combined with `e.key === "Escape"` to cancel, this gives fast keyboard flow without a `<form>` element.
 
