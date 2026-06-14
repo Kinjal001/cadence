@@ -2,10 +2,12 @@
 
 # Cadence — Project Context
 
-A personal productivity PWA: habit tracker + dailies + tasks, light theme,
-clean modern design (inspired by "Cadence" — Bricolage Grotesque + Plus Jakarta 
-Sans + JetBrains Mono fonts, OKLCH color system).
-Stack: Next.js (App Router, TypeScript), Tailwind CSS, Supabase (later), deployed on Vercel.
+A personal productivity PWA. v1 scope: Dailies (daily check-in behaviors with
+streaks, history, notes) + Tasks. No separate Habits/Dailies distinction — one
+unified daily check-in model. Goals and Projects deferred past v1.
+Light theme, clean modern design (Bricolage Grotesque + Plus Jakarta Sans +
+JetBrains Mono fonts, OKLCH color system).
+Stack: Next.js (App Router, TypeScript), Tailwind CSS, Supabase, deployed on Vercel.
 
 I'm a beginner learning by building. After every change, briefly explain in
 plain language: what changed, why, and any new concept.

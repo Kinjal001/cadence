@@ -3,15 +3,15 @@
 **Live URL:** https://cadence-zeta-ruby.vercel.app/
 **Repo:** https://github.com/Kinjal001/cadence
 **Stack:** Next.js 16 (App Router, TypeScript) · Tailwind CSS · Supabase · Vercel
-**v1 Scope:** Habits, Dailies, Tasks — Goals and Projects deferred to later
+**v1 Scope:** Dailies (daily check-in behaviors with streaks, history, notes) + Tasks — Goals and Projects deferred to later
 
 ---
 
 ## Design Direction
 
-- **Theme:** Clean light, OKLCH color space for perceptually uniform habit colors
+- **Theme:** Clean light, OKLCH color space for perceptually uniform daily colors
 - **Fonts:** Bricolage Grotesque (headings/display) · Plus Jakarta Sans (body/UI) · JetBrains Mono (numbers, streaks, stats)
-- **Motifs:** Completion rings on habits, streak counters, subtle animation on check-in
+- **Motifs:** Completion rings on dailies, streak counters, subtle animation on check-in
 
 ---
 
@@ -35,30 +35,30 @@
 
 ---
 
-### Slice 1: Habits — Today View with Check-in and Streaks
+### Slice 1: Dailies — Today View with Check-in and Streaks
 
-**Goal:** The core loop — see today's habits, tap to check them off, watch a streak grow. Backed by Supabase so data persists across sessions.
+**Goal:** The core loop — see today's dailies, tap to check them off, watch a streak grow. Backed by Supabase so data persists across sessions.
 
 This slice is split into two sub-steps. Complete them in order.
 
-#### Step 1a: Supabase setup + Habits CRUD
+#### Step 1a: Supabase setup + Dailies CRUD
 
 - [ ] Create a Supabase project and get the project URL + anon key
 - [ ] Add env vars to `.env.local` and the Vercel dashboard (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 - [ ] Install `@supabase/supabase-js` and create a shared client utility
-- [ ] Run the `habits` and `habit_logs` migrations in the Supabase SQL editor (schema below)
-- [ ] Build a `/habits` route with a list of all habits
-- [ ] "Add habit" form: name, color (preset OKLCH palette), optional emoji icon
-- [ ] Saving a habit writes a row to Supabase; the list re-fetches and shows it
+- [ ] Run the `dailies` and `daily_logs` migrations in the Supabase SQL editor (schema below)
+- [ ] Build a `/dailies` route with a list of all dailies
+- [ ] "Add daily" form: name, color (preset OKLCH palette), optional emoji icon
+- [ ] Saving a daily writes a row to Supabase; the list re-fetches and shows it
 
 #### Step 1b: Today check-in + streaks + completion ring UI
 
 - [ ] Add the three fonts via `next/font/google` in `layout.tsx`
 - [ ] Define OKLCH color tokens as CSS custom properties in `globals.css`
-- [ ] Today view (make `/` the landing page): shows habits due today
-- [ ] Tapping a habit inserts a row in `habit_logs` for today's date
+- [ ] Today view (make `/` the landing page): shows dailies due today
+- [ ] Tapping a daily inserts a row in `daily_logs` for today's date
 - [ ] Completion ring SVG component — animates 0 → full circle on check-in
-- [ ] Streak counter: query `habit_logs` for consecutive days, display with JetBrains Mono
+- [ ] Streak counter: query `daily_logs` for consecutive days, display with JetBrains Mono
 - [ ] Undo check-in: tap again to delete today's log row and reset the ring
 
 **Data model additions:**
@@ -66,48 +66,12 @@ This slice is split into two sub-steps. Complete them in order.
 ```sql
 -- Run in Supabase SQL editor
 
-create table habits (
+create table dailies (
   id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null,       -- hardcoded placeholder until Slice 6 adds real auth
+  user_id     uuid not null,       -- hardcoded placeholder until Slice 5 adds real auth
   name        text not null,
   color       text not null,       -- oklch string, e.g. 'oklch(0.72 0.15 250)'
   icon        text,                -- emoji or null
-  sort_order  integer default 0,
-  archived_at timestamptz,
-  created_at  timestamptz default now()
-);
-
-create table habit_logs (
-  id         uuid primary key default gen_random_uuid(),
-  habit_id   uuid references habits(id) on delete cascade,
-  date       date not null,
-  created_at timestamptz default now(),
-  unique(habit_id, date)           -- one check-in per habit per day
-);
-```
-
-**Done when:** You can add a habit, see it on the Today view, tap it to fill its completion ring, and after two consecutive days the streak counter reads 2.
-
----
-
-### Slice 2: Dailies — Pinned Must-Do Items
-
-**Goal:** A separate, always-visible checklist of non-negotiable daily items (e.g. "Take vitamins", "10 min walk"). Simpler than habits — no streaks, just a fresh list each day.
-
-- [ ] Run the `dailies` and `daily_logs` migrations (schema below)
-- [ ] Add a Dailies section to the Today view (or a `/dailies` sub-route)
-- [ ] Add/rename/delete a daily item
-- [ ] Reorder items (up/down arrows for v1; drag-to-reorder is a nice-to-have)
-- [ ] Check off a daily for today — it resets automatically at midnight (no log row = unchecked)
-- [ ] Visual treatment: simple filled checkbox, no ring, clearly distinct from Habits
-
-**Data model additions:**
-
-```sql
-create table dailies (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null,
-  name        text not null,
   sort_order  integer default 0,
   archived_at timestamptz,
   created_at  timestamptz default now()
@@ -118,15 +82,15 @@ create table daily_logs (
   daily_id   uuid references dailies(id) on delete cascade,
   date       date not null,
   created_at timestamptz default now(),
-  unique(daily_id, date)
+  unique(daily_id, date)           -- one check-in per daily per day
 );
 ```
 
-**Done when:** You can add "Drink 2L water" to Dailies, check it off today, and see it unchecked again the following morning.
+**Done when:** You can add a daily, see it on the Today view, tap it to fill its completion ring, and after two consecutive days the streak counter reads 2.
 
 ---
 
-### Slice 3: Tasks — Add, Complete, and Filter
+### Slice 2: Tasks — Add, Complete, and Filter
 
 **Goal:** A lightweight task list — add tasks with optional due dates, mark them done, filter by status. No projects, labels, or priorities in v1.
 
@@ -155,23 +119,23 @@ create table tasks (
 
 ---
 
-### Slice 4: Insights — Weekly Stats and Consistency View
+### Slice 3: Insights — Weekly Stats and Consistency View
 
 **Goal:** A read-only view that surfaces how you're doing — completion rates, streaks over the last four weeks, and a week summary. No new data — everything is derived from existing tables.
 
 - [ ] `/insights` route
-- [ ] This week's summary card: habits completed today (X of Y), tasks closed this week
-- [ ] Per-habit consistency grid: GitHub-style heatmap for the last 28 days
-- [ ] Streak stats per habit: Current streak · Longest streak (using JetBrains Mono for numbers)
-- [ ] Dailies completion rate: % of days all dailies were finished this week
+- [ ] This week's summary card: dailies completed today (X of Y), tasks closed this week
+- [ ] Per-daily consistency grid: GitHub-style heatmap for the last 28 days
+- [ ] Streak stats per daily: Current streak · Longest streak (using JetBrains Mono for numbers)
+- [ ] Tasks closed this week vs last week comparison
 
-**Data model additions:** none (reads from `habit_logs`, `daily_logs`, `tasks`)
+**Data model additions:** none (reads from `daily_logs`, `tasks`)
 
 **Done when:** After a few days of use, `/insights` shows a partially filled heatmap, accurate streak numbers, and a tasks-closed count that matches what you actually completed.
 
 ---
 
-### Slice 5: PWA Setup — Installable and Offline-Friendly
+### Slice 4: PWA Setup — Installable and Offline-Friendly
 
 **Goal:** Make Cadence installable to the home screen on mobile and desktop, with a cached shell so the Today view loads instantly even without a network connection.
 
@@ -189,7 +153,7 @@ create table tasks (
 
 ---
 
-### Slice 6: Auth — Multi-Device Access
+### Slice 5: Auth — Multi-Device Access
 
 **Goal:** Add Supabase Auth so your data follows you across devices. Deliberately deferred — single-device use should feel solid first.
 
@@ -205,17 +169,17 @@ create table tasks (
 
 ```sql
 -- Enable RLS and add policies on every table
--- (repeat this pattern for dailies, daily_logs, habit_logs, tasks)
+-- (repeat this pattern for dailies, daily_logs, tasks)
 
-alter table habits enable row level security;
+alter table dailies enable row level security;
 
-create policy "users see own habits"
-  on habits for all
+create policy "users see own dailies"
+  on dailies for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 ```
 
-**Done when:** You sign in on a second device (or an incognito window), and your habits, dailies, and tasks are all there. A signed-out visitor hitting `/` is redirected to `/login`.
+**Done when:** You sign in on a second device (or an incognito window), and your dailies and tasks are all there. A signed-out visitor hitting `/` is redirected to `/login`.
 
 ---
 
@@ -225,8 +189,9 @@ create policy "users see own habits"
 |------|----------|--------|
 | 2026-06-14 | Started fresh with Next.js, retiring the Flutter project (Jarvis) | Web-first means no native build toolchain, instant deploys, easier to iterate with AI pair programming |
 | 2026-06-14 | Supabase as the backend | Postgres + auth + real-time in one service; generous free tier; first-class Next.js support |
-| 2026-06-14 | Auth deferred to Slice 6 | Single-device use covers the v1 use case; adding auth earlier adds friction without shipping value |
-| 2026-06-14 | Goals and Projects deferred past v1 | The Habits + Dailies + Tasks loop needs to feel right before adding planning layers on top |
-| 2026-06-14 | OKLCH color space for habit colors | Perceptually uniform — two habits at the same lightness/chroma but different hues look equally vivid, unlike HSL |
+| 2026-06-14 | Auth deferred to Slice 5 | Single-device use covers the v1 use case; adding auth earlier adds friction without shipping value |
+| 2026-06-14 | Goals and Projects deferred past v1 | The Dailies + Tasks loop needs to feel right before adding planning layers on top |
+| 2026-06-14 | Merged Habits and Dailies into a single "Dailies" concept | The distinction added complexity without clear user value at v1 scale; one unified daily check-in model is simpler to build and use |
+| 2026-06-14 | OKLCH color space for daily colors | Perceptually uniform — two dailies at the same lightness/chroma but different hues look equally vivid, unlike HSL |
 | 2026-06-14 | Bricolage Grotesque + Plus Jakarta Sans | Bricolage adds personality to headings; Jakarta Sans is clean and highly legible for UI text at small sizes |
 | 2026-06-14 | JetBrains Mono for numbers | Tabular figures and monospace rhythm make streak counts and stats feel precise and data-y |

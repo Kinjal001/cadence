@@ -2,6 +2,8 @@
 
 A running record of every concept, tool, and pattern introduced in this project — explained simply, organized by the Slice where it first appeared. Add new entries as slices are completed.
 
+**v1 scope:** Dailies (daily check-in behaviors with streaks, history, notes) + Tasks.
+
 ---
 
 ## Slice 0: Project Setup
