@@ -217,6 +217,7 @@ export default function InsightsPage() {
   const weekDates    = getWeekDates();
   const heatmapGrid  = buildHeatmapGrid(totalDailies, logsByDate);
   const consistency  = [...dailies].sort((a, b) => b.pct30 - a.pct30);
+  const leaderboard  = [...dailies].sort((a, b) => b.streak - a.streak);
 
   /* ── Loading / Error ── */
 
@@ -302,7 +303,7 @@ export default function InsightsPage() {
           <div className="flex flex-col md:flex-row gap-4 items-start">
 
             {/* Left — This week */}
-            <div className="flex-1 w-full bg-white border border-[var(--border)] rounded-[16px] p-5">
+            <div className="flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
                   This week
@@ -389,8 +390,8 @@ export default function InsightsPage() {
               </div>
             </div>
 
-            {/* Right — Consistency */}
-            <div className="flex-1 w-full bg-white border border-[var(--border)] rounded-[16px] p-5">
+            {/* Right — Consistency + Leaderboard */}
+            <div className="flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
               <div className="flex items-baseline gap-[5px] mb-4">
                 <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
                   Consistency
@@ -413,10 +414,10 @@ export default function InsightsPage() {
                           className="w-[7px] h-[7px] rounded-full flex-shrink-0"
                           style={{ background: barColor }}
                         />
-                        <span className="font-medium text-[12.5px] text-[var(--text-primary)] truncate min-w-0 flex-1">
+                        <span className="font-medium text-[12.5px] text-[var(--text-primary)] truncate w-[72px] flex-shrink-0">
                           {daily.name}
                         </span>
-                        <div className="w-[80px] flex-shrink-0 h-[5px] rounded-full bg-[#EDE9FE] overflow-hidden">
+                        <div className="flex-1 h-[5px] rounded-full bg-[#EDE9FE] overflow-hidden">
                           <div
                             className="h-full rounded-full"
                             style={{ width: `${pctInt}%`, background: barColor }}
@@ -431,6 +432,44 @@ export default function InsightsPage() {
                     );
                   })}
                 </div>
+              )}
+
+              {/* Divider + Streak leaderboard */}
+              {dailies.length > 0 && (
+                <>
+                  <div className="border-t border-[var(--border)] my-5" />
+
+                  <div className="flex items-baseline gap-[5px] mb-3">
+                    <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
+                      Streak leaderboard
+                    </h2>
+                  </div>
+
+                  <div className="flex flex-col gap-[10px]">
+                    {leaderboard.map((daily, i) => (
+                      <div key={daily.id} className="flex items-center gap-[8px]">
+                        <span className="font-mono text-[10.5px] text-[var(--text-subtle)] w-[14px] text-right flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <span
+                          className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                          style={{ background: ACCENT_BG[daily.accent] }}
+                        />
+                        <span className="flex-1 font-medium text-[12.5px] text-[var(--text-primary)] truncate min-w-0">
+                          {daily.name}
+                        </span>
+                        <div className="flex items-center gap-[3px] font-mono text-[11.5px] text-[oklch(0.55_0.018_264)] flex-shrink-0">
+                          <span className="text-[10px]">🔥</span>
+                          <span>{daily.streak}d</span>
+                        </div>
+                        <div className="flex items-center gap-[3px] font-mono text-[10.5px] text-[var(--text-subtle)] flex-shrink-0">
+                          <span>⚡</span>
+                          <span>{daily.longestStreak}d</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
