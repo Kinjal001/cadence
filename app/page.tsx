@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import { DailyCard, type Accent } from "@/components/DailyCard";
@@ -93,47 +94,23 @@ function getInsight(dailies: Daily[]) {
 
 const BottomNavItems = [
   {
-    label: "Today",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="2.5" y="3.5" width="13" height="11.5" rx="2.5" />
-        <line x1="2.5" y1="7" x2="15.5" y2="7" />
-        <line x1="6" y1="2" x2="6" y2="5" />
-        <line x1="12" y1="2" x2="12" y2="5" />
-      </svg>
-    ),
+    label: "Today", href: "/",
+    icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="3.5" width="13" height="11.5" rx="2.5" /><line x1="2.5" y1="7" x2="15.5" y2="7" /><line x1="6" y1="2" x2="6" y2="5" /><line x1="12" y1="2" x2="12" y2="5" /></svg>,
     active: true,
   },
   {
-    label: "Dailies",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <circle cx="9" cy="9" r="6.5" />
-        <circle cx="9" cy="9" r="2" />
-      </svg>
-    ),
+    label: "Dailies", href: "/dailies",
+    icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="9" cy="9" r="6.5" /><circle cx="9" cy="9" r="2" /></svg>,
     active: false,
   },
   {
-    label: "Tasks",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="2.5" y="2.5" width="13" height="13" rx="2.5" />
-        <line x1="6" y1="7" x2="12" y2="7" />
-        <line x1="6" y1="11" x2="12" y2="11" />
-      </svg>
-    ),
+    label: "Tasks", href: "/tasks",
+    icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="2.5" width="13" height="13" rx="2.5" /><line x1="6" y1="7" x2="12" y2="7" /><line x1="6" y1="11" x2="12" y2="11" /></svg>,
     active: false,
   },
   {
-    label: "Insights",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
-        <rect x="3" y="9" width="3" height="6" rx="1" />
-        <rect x="7.5" y="5.5" width="3" height="9.5" rx="1" />
-        <rect x="12" y="3" width="3" height="12" rx="1" />
-      </svg>
-    ),
+    label: "Insights", href: "/insights",
+    icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="9" width="3" height="6" rx="1" /><rect x="7.5" y="5.5" width="3" height="9.5" rx="1" /><rect x="12" y="3" width="3" height="12" rx="1" /></svg>,
     active: false,
   },
 ];
@@ -638,16 +615,17 @@ export default function TodayPage() {
 
       {/* Mobile bottom nav — visible only below md */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] flex items-stretch z-30">
-        {BottomNavItems.map(({ label, icon, active }) => (
-          <button
+        {BottomNavItems.map(({ label, href, icon, active }) => (
+          <Link
             key={label}
-            className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide border-none bg-transparent cursor-pointer transition-colors ${
+            href={href}
+            className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide no-underline transition-colors ${
               active ? "text-[var(--violet)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {icon}
             {label}
-          </button>
+          </Link>
         ))}
       </nav>
 
