@@ -398,3 +398,16 @@ When you have many category names (e.g. "Work", "Personal", "Study") and want ea
 **Why we used it:** Task categories are freeform text — users type whatever they want. We don't store a color for each category. The `pillColor(cat)` function computes a simple hash of the category name (multiplying char codes by 31, a common string-hashing trick) and picks from 5 color palettes. Same category name → same color, every time, on any device.
 
 **Where:** `pillColor()` helper in `app/tasks/page.tsx`. Used to style category pill badges on task cards.
+
+---
+
+### Separating button color from accent color (`--btn-primary`)
+Not all uses of a brand color should be the same shade. There are two roles:
+- **Accent / state indicator** — the soft lavender `#A78BFA` tells you something *is* active (nav item selected, checkbox checked, ring filled). These need to be noticeable but not loud.
+- **Action button fill** — a button needs enough contrast and visual weight to say "press me." The soft lavender was too pale for this.
+
+Introducing `--btn-primary: #815BEB` (slightly darker, more saturated than `#A78BFA`) gives buttons a clear interactive feel while leaving the lighter lavender for everything else.
+
+**Why we used it:** After switching to lavender, buttons felt weak — the eye didn't naturally want to click them. A dedicated button token lets us tune button contrast independently without touching checkboxes, rings, or nav active states.
+
+**Where:** `app/globals.css` — `--btn-primary: #815BEB`. Used via `bg-[var(--btn-primary)]` on all action buttons in `app/page.tsx` and `app/tasks/page.tsx`. Hover state uses the existing `--violet-dark: #7C5CE8`.

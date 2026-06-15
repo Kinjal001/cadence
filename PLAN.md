@@ -205,3 +205,6 @@ create policy "users see own dailies"
 | 2026-06-14 | OKLCH color space for daily colors | Perceptually uniform — two dailies at the same lightness/chroma but different hues look equally vivid, unlike HSL |
 | 2026-06-14 | Bricolage Grotesque + Plus Jakarta Sans | Bricolage adds personality to headings; Jakarta Sans is clean and highly legible for UI text at small sizes |
 | 2026-06-14 | JetBrains Mono for numbers | Tabular figures and monospace rhythm make streak counts and stats feel precise and data-y |
+| 2026-06-15 | Split button color from accent: `--btn-primary` `#815BEB` vs `--violet` `#A78BFA` | Buttons need to read as interactive controls; soft lavender `#A78BFA` is too low-contrast for a fill. Checkboxes, rings, and nav active stay lavender because they're state indicators, not actions. |
+| 2026-06-15 | Background `#F4F3FF` instead of near-white `#F8F8FC` | Subtle lavender tint gives cards something to lift off of; pure near-white felt flat with white cards |
+| 2026-06-15 | Tasks page extended beyond v1 plan: added priority + category | Priority (high/medium/low) and freeform category felt essential to make task cards useful; added `priority` column via `ALTER TABLE` |
