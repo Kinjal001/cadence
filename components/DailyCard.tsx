@@ -16,7 +16,7 @@ export function DailyCard({ name, desc, accent, streak, past, doneToday, onToggl
   const dots = [...past, doneToday]; // 7 dots total
 
   return (
-    <div className={`accent-${accent} bg-white border border-[var(--border)] rounded-[14px] p-[14px_16px] flex flex-col gap-3`}>
+    <div className={`accent-${accent} bg-white border border-[var(--border)] rounded-[14px] p-[14px_16px] flex flex-col gap-3 card-lift`}>
 
       {/* Header row: dot + name + desc on left, check button on right */}
       <div className="flex items-start justify-between gap-3">

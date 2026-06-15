@@ -208,11 +208,11 @@ export default function TasksPage() {
 
   if (loading || loadError) {
     return (
-      <div className="flex h-full overflow-hidden bg-[#F8F8FC]">
+      <div className="flex h-full overflow-hidden bg-[#F4F3FF]">
         <div className="hidden md:flex">
           <Sidebar doneCount={sidebarDone} totalDailies={sidebarTotal} activeNav="tasks" />
         </div>
-        <main className="flex-1 flex items-center justify-center bg-[#F8F8FC]">
+        <main className="flex-1 flex items-center justify-center bg-[#F4F3FF]">
           {loadError ? (
             <div className="flex flex-col items-center gap-3 max-w-sm text-center px-6">
               <span className="text-[22px]">⚠️</span>
@@ -238,7 +238,7 @@ export default function TasksPage() {
   const renderCard = (task: Task) => (
     <div
       key={task.id}
-      className={`flex items-start gap-3 px-[14px] py-[11px] bg-white border rounded-[12px] transition-colors ${
+      className={`flex items-start gap-3 px-[14px] py-[11px] bg-white border rounded-[12px] transition-colors card-lift ${
         isOverdue(task) ? "border-[oklch(0.86_0.08_25)]" : "border-[var(--border)]"
       }`}
     >
@@ -296,7 +296,7 @@ export default function TasksPage() {
         onClick={() => toggleTask(task.id)}
         className={`w-[22px] h-[22px] flex-shrink-0 mt-[1px] rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
           task.done
-            ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-white"
+            ? "bg-[var(--violet)] border-[var(--violet)] text-white"
             : "bg-white border-[oklch(0.89_0.006_264)] text-transparent hover:border-[var(--violet)]"
         }`}
         title={task.done ? "Mark pending" : "Mark done"}
@@ -324,14 +324,14 @@ export default function TasksPage() {
   const listToShow = filter === "pending" ? pending : done;
 
   return (
-    <div className="flex h-full overflow-hidden bg-[#F8F8FC] text-[var(--text-primary)] antialiased">
+    <div className="flex h-full overflow-hidden bg-[#F4F3FF] text-[var(--text-primary)] antialiased">
 
       {/* Sidebar */}
       <div className="hidden md:flex">
         <Sidebar doneCount={sidebarDone} totalDailies={sidebarTotal} activeNav="tasks" />
       </div>
 
-      <main className="flex-1 overflow-y-auto bg-[#F8F8FC] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
+      <main className="flex-1 overflow-y-auto bg-[#F4F3FF] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
         <div className="max-w-[680px]">
 
           {/* Header */}
@@ -347,7 +347,7 @@ export default function TasksPage() {
               </div>
               <button
                 onClick={() => setAddingTask(true)}
-                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
+                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
               >
                 <span className="text-[16px] leading-none font-normal">+</span>
                 Add task
@@ -388,7 +388,7 @@ export default function TasksPage() {
                 onChange={(e) => setNewTitle(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelAdd(); }}
                 placeholder="Task title (required)"
-                className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
               />
               <div className="flex gap-2">
                 <input
@@ -397,14 +397,14 @@ export default function TasksPage() {
                   onChange={(e) => setNewCategory(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") cancelAdd(); }}
                   placeholder="Category — e.g. Work, Personal"
-                  className="flex-1 px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                  className="flex-1 px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                 />
                 <input
                   type="date"
                   value={newDeadline}
                   onChange={(e) => setNewDeadline(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") cancelAdd(); }}
-                  className="w-[155px] flex-shrink-0 px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
+                  className="w-[155px] flex-shrink-0 px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                 />
               </div>
 

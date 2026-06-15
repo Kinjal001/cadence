@@ -71,7 +71,7 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
   const dashOffset = totalDailies > 0 ? CIRC * (1 - doneCount / totalDailies) : CIRC;
 
   return (
-    <aside className="w-[264px] flex-shrink-0 bg-white border-r border-[var(--border)] flex flex-col pt-[26px] pb-[18px] px-[18px]">
+    <aside className="w-[264px] flex-shrink-0 bg-white border-r border-[var(--border-strong)] flex flex-col pt-[26px] pb-[18px] px-[18px]">
 
       {/* Logo */}
       <div className="flex items-center gap-[11px] px-[10px] pb-[22px]">

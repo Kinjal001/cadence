@@ -4,23 +4,24 @@
   color-scheme: light; /* always light — no dark mode in this app */
 
   /* Backgrounds */
-  --app-bg:     #F8F8FC;
+  --app-bg:     #F4F3FF;   /* subtle lavender-gray tint — depth without darkness */
   --card-bg:    #ffffff;
   --sidebar-bg: #ffffff;
 
   /* Borders */
-  --border:     #E8E8F2;
-  --border-soft:#DDDDE8;
+  --border:        #E5E3F3;   /* card and input borders — slightly more visible */
+  --border-soft:   #DDD9F5;
+  --border-strong: #DDD9F5;   /* sidebar separator */
 
   /* Text */
-  --text-primary:   #1C1C2E;
-  --text-secondary: #5A5A78;
-  --text-muted:     #6E6E88;
-  --text-subtle:    #8A8AA4;
+  --text-primary:   #1E1B3A;   /* deep navy-purple — better readability */
+  --text-secondary: #6B6889;   /* purple-gray — warmer than plain gray */
+  --text-muted:     #7B7899;
+  --text-subtle:    #9590B0;
 
   /* Brand violet — soft lavender #A78BFA (violet-400) */
   --violet:        #A78BFA;                    /* primary — buttons, rings, active accents  */
-  --violet-dark:   #9D77F5;                    /* hover states                              */
+  --violet-dark:   #7C5CE8;                    /* hover states — perceptibly darker          */
   --violet-active: #EDE9FE;                    /* nav highlight bg, subtle fills            */
   --violet-text:   oklch(0.44 0.22 293);       /* dark violet for text on light bg          */
 
@@ -37,7 +38,7 @@
 
   /* Custom brand palette — enables bg-primary, text-primary, border-primary etc. */
   --color-primary:       #A78BFA;
-  --color-primary-dark:  #9D77F5;
+  --color-primary-dark:  #7C5CE8;
   --color-primary-light: #EDE9FE;
 }
 
@@ -49,8 +50,8 @@ a {
 /* Explicit light theme on root elements — prevents system dark mode bleed */
 html,
 body {
-  background: #F8F8FC;
-  color: #1C1C2E;
+  background: #F4F3FF;
+  color: #1E1B3A;
 }
 
 body {
@@ -62,15 +63,20 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #D8D8E8;
   border-radius: 10px;
-  border: 3px solid #F8F8FC;
+  border: 3px solid #F4F3FF;
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Per-daily accent tokens — applied as a className on each card wrapper */
-.accent-violet  { --accent: #A78BFA;                   --accent-empty: #EDE9FE; --accent-shadow: oklch(0.70 0.19 293 / 0.28); }
-.accent-blue    { --accent: oklch(0.57 0.15 240);       --accent-empty: #E8E8F2; --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
-.accent-emerald { --accent: oklch(0.60 0.12 165);       --accent-empty: #E8E8F2; --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
-.accent-amber   { --accent: oklch(0.72 0.13 76);        --accent-empty: #E8E8F2; --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
+.accent-violet  { --accent: #A78BFA;             --accent-empty: #EDE9FE; --accent-shadow: oklch(0.70 0.19 293 / 0.28); }
+.accent-blue    { --accent: oklch(0.57 0.15 240); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
+.accent-emerald { --accent: oklch(0.60 0.12 165); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
+.accent-amber   { --accent: oklch(0.72 0.13 76);  --accent-empty: #E8E8F2; --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
+
+/* Soft lavender-tinted card shadow — lifts white cards off the #F4F3FF background */
+@utility card-lift {
+  box-shadow: 0 1px 3px 0 oklch(0.55 0.08 293 / 0.07), 0 1px 2px -1px oklch(0.55 0.08 293 / 0.06);
+}
 
 /* Insight card — soft lavender-to-violet gradient, calm and readable */
 @utility insight-card {

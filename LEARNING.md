@@ -233,6 +233,28 @@ A "controlled input" is an `<input>` whose value is always set from React state.
 
 ---
 
+---
+
+## Slice 1 (Step 1a): Supabase Integration
+
+### Database tables and foreign keys
+A database table is like a spreadsheet — it has named columns (like `id`, `name`, `created_at`) and rows of data. Each row gets a unique `id` column so you can refer to it precisely. A **foreign key** is a column in one table that points to a row in another table. For example, `daily_logs.daily_id` is a foreign key referencing `dailies.id` — it says "this log entry belongs to that specific daily." The database enforces that the referenced row actually exists; if you try to insert a log for a daily that doesn't exist, it fails. `on delete cascade` means: if a daily is deleted, all its logs are automatically deleted too, so you never get orphaned rows.
+
+**Why we used it:** `daily_logs` records one check-in per daily per day. It needs a foreign key to `dailies` so each log is linked to the right habit. The `unique(daily_id, date)` constraint means you can only check in once per day per daily — no accidental duplicates.
+
+**Where:** The SQL run in Supabase's SQL Editor during Slice 1a. Reflected in `PLAN.md` under Slice 1 → Data model.
+
+---
+
+### Client-side state vs. a real database
+Before Slice 1a, all data lived in React's `useState` — arrays stored in the browser's memory while the tab was open. Refresh the page and everything resets to the hardcoded defaults. A real database (Supabase / Postgres in our case) stores data on a server, so it persists across refreshes, devices, and time. The tradeoff: a database requires a network round-trip to read and write, so you need patterns like `useEffect` for initial load and optimistic updates to keep the UI feeling fast.
+
+**Why we learned it:** Switching from `useState` seed data to Supabase is the central step of Slice 1a. Understanding the difference helps explain why we need `useEffect`, `Promise.all`, loading states, error handling, and optimistic updates — all patterns that exist to bridge the gap between instant in-memory state and a remote database.
+
+**Where:** `app/page.tsx` — the entire page was rewritten to fetch from Supabase on mount and write back on every toggle/add. Before this, it used `SEED_DAILIES` and `SEED_TASKS` constants.
+
+---
+
 ### Supabase client (`@supabase/supabase-js`)
 Supabase is a hosted Postgres database with a JavaScript client library. `createClient(url, anonKey)` gives you an object you can use to query and mutate any table in your database using a chainable API — no SQL required in most cases.
 
@@ -293,3 +315,86 @@ Instead of a `<form onSubmit>`, you can listen for `e.key === "Enter"` inside `o
 **Why we used it:** The task input row is designed to feel like a quick-capture field — press Enter to add, no button click required. The Add-daily form also supports Escape to dismiss.
 
 **Where:** `app/page.tsx` — both input elements' `onKeyDown` handlers.
+
+---
+
+## Slice 2: Tasks Page + Design Polish
+
+### `export const dynamic = "force-dynamic"`
+By default, Next.js tries to statically render (pre-build) pages that have no server-side data. When a page imports `lib/supabase.ts`, Next.js can try to evaluate that module at build time — which fails because the env vars aren't set during the build. Exporting this constant at the top of the page file tells Next.js: "never pre-render this page; always render it at request time."
+
+**Why we used it:** Both `app/page.tsx` and `app/tasks/page.tsx` use `useEffect` to fetch Supabase data client-side, but Next.js still tried to analyze their imports at build time and threw a build error. This one line fixed the Vercel deployment failure.
+
+**Where:** Line 3 in `app/page.tsx` and `app/tasks/page.tsx`.
+
+---
+
+### Lazy singleton pattern for Supabase client
+Instead of calling `createClient(url, key)` at the module's top level, we wrap it in a function that only calls it the first time it runs — storing the result in a module-level variable and reusing it on subsequent calls. This is called a "lazy singleton."
+
+**Why we used it:** Next.js evaluates module code during static analysis at build time, before env vars are available. A top-level `createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, ...)` was throwing `undefined` errors. Deferring the call inside a function means it only runs when the page actually loads in a browser, where env vars exist.
+
+**Where:** `lib/supabase.ts` — `export function db(): SupabaseClient { if (!_client) { _client = createClient(...) } return _client; }`.
+
+---
+
+### `a { color: inherit }` — preventing default browser link color
+HTML `<a>` tags have a browser-default style of `color: blue`. When Next.js's `<Link>` component renders (it outputs an `<a>` tag), that browser default overrides your CSS variable-based colors. Adding `a { color: inherit }` in `globals.css` tells all links to use whatever color their parent element has, instead of the browser default blue.
+
+**Why we used it:** The sidebar nav items were showing blue text on active state instead of the designed violet, even though the classes were correct. The issue was the browser's default link color winning. This one rule in `globals.css` fixed all nav items at once.
+
+**Where:** `app/globals.css` — top-level `a { color: inherit; }`.
+
+---
+
+### OKLCH hue calibration: why hue 255 looks blue
+OKLCH's hue is measured in degrees around a color wheel. Hue 240 is pure blue. Hue 255 is blue-violet — it *appears blue* to the human eye, not violet. Hue 270 is where violet starts, hue 283 is a clean violet, and hue 293 is a purple-violet. This matters because it's not obvious: you'd expect hue 270 to be "middle violet," but perceptually you need to go further.
+
+**Why we used it:** The entire app accent was rendering as blue even though we thought we were using violet. Shifting from hue 255 → 283 → 293 across the design system is what turned it from blue-leaning to visually purple-violet. The final brand color landed at `#A78BFA` (a soft lavender-violet).
+
+**Where:** `app/globals.css` — `--violet`, `--violet-dark`, `--violet-active`, and all `oklch(...)` accent values.
+
+---
+
+### CSS variable cascade = one-line global theme change
+Because every component reads colors from CSS variables (`var(--violet)`, `var(--text-primary)`, etc.) rather than hardcoding hex values, changing a global color only requires updating the variable in `globals.css`. All components that use that variable update automatically — no component files need to be touched.
+
+**Why we used it:** We went through several full-app color changes (blue → violet → lavender, then a contrast lift) during Slice 2 polish. Each one was just a few lines in `globals.css` instead of a grep-and-replace across 5 files. The only hardcoded values that need updating are SVG `stroke` attributes and Tailwind shadow arbitrary values (which can't use CSS variables in their `oklch(...)` inside `shadow-[...]` — a known Tailwind v4 limitation).
+
+**Where:** `app/globals.css` — `:root { --violet: ...; --text-primary: ...; }` etc.
+
+---
+
+### `@utility card-lift` — custom Tailwind utility for card shadows
+In Tailwind v4, `@utility` in `globals.css` defines a new utility class you can use anywhere in the app, just like a built-in Tailwind class. Unlike Tailwind's built-in `shadow-sm` (which uses a neutral gray), we defined `card-lift` to use a lavender-tinted shadow (`oklch(0.55 0.08 293 / 0.07)`) that matches the app's purple hue.
+
+**Why we used it:** White cards on a near-white background need a shadow to "lift" off the page and feel tangible. Using a hue-matched shadow (purple tint instead of plain gray) makes the depth feel cohesive rather than generic.
+
+**Where:** `app/globals.css` — `@utility card-lift { box-shadow: ... }`. Applied via `className="... card-lift"` on daily cards (`DailyCard.tsx`) and task card divs in `page.tsx` and `tasks/page.tsx`.
+
+---
+
+### Priority dots vs. accent color
+The app has two separate color systems that must never mix: (1) the brand accent (soft lavender `#A78BFA`) used for buttons, checkboxes, active states, and rings; (2) priority indicators (red for high, amber for medium, neutral gray for low). Priority colors use red/amber/gray regardless of the brand theme. This is intentional — they need to communicate urgency, not brand identity.
+
+**Why we learned it:** During accent color changes, there was a risk of accidentally updating priority dot colors to match the brand violet. They are hardcoded OKLCH values that never change: `oklch(0.55 0.20 25)` (red), `oklch(0.70 0.13 76)` (amber), `oklch(0.68 0.01 264)` (gray).
+
+**Where:** `PRIORITY_COLOR` constant in both `app/page.tsx` and `app/tasks/page.tsx`.
+
+---
+
+### Fetching sidebar data on every page
+The sidebar's "Today's rhythm" completion ring shows the daily check-in progress (e.g. "3/5 dailies done"). On the Tasks page, that data doesn't come for free — the page only fetches tasks by default. To keep the ring accurate, `tasks/page.tsx` fetches `dailies` count and today's `daily_logs` count alongside the tasks in the same `Promise.all`, and passes the result as `doneCount` and `totalDailies` props to `<Sidebar>`.
+
+**Why we used it:** Without this, the sidebar showed "0/0 dailies done" on every non-Today page. Each page that includes the sidebar needs to supply the ring data.
+
+**Where:** `loadData()` in `app/tasks/page.tsx` — the extra two Supabase queries in `Promise.all`, and `setSidebarDone` / `setSidebarTotal` state vars passed to `<Sidebar>`.
+
+---
+
+### Deterministic color from a hash
+When you have many category names (e.g. "Work", "Personal", "Study") and want each one to get a consistent color without storing which color it is, you can hash the string to a number and use `number % palette.length` to pick a color. The same string always produces the same number, so the color is stable.
+
+**Why we used it:** Task categories are freeform text — users type whatever they want. We don't store a color for each category. The `pillColor(cat)` function computes a simple hash of the category name (multiplying char codes by 31, a common string-hashing trick) and picks from 5 color palettes. Same category name → same color, every time, on any device.
+
+**Where:** `pillColor()` helper in `app/tasks/page.tsx`. Used to style category pill badges on task cards.

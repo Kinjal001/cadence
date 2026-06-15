@@ -35,18 +35,18 @@
 
 ---
 
-### Slice 1: Dailies — Today View with Check-in and Streaks
+### Slice 1: Dailies — Today View with Check-in and Streaks — ✅ Complete (2026-06-14)
 
 **Goal:** The core loop — see today's dailies, tap to check them off, watch a streak grow. Backed by Supabase so data persists across sessions.
 
 This slice is split into two sub-steps. Complete them in order.
 
-#### Step 1a: Supabase setup + Dailies CRUD — 🔄 In Progress
+#### Step 1a: Supabase setup + Dailies CRUD — ✅ Complete
 
-- [ ] Create a Supabase project and get the project URL + anon key
-- [ ] Add env vars to `.env.local` and the Vercel dashboard (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- [x] Create a Supabase project and get the project URL + anon key
+- [x] Add env vars to `.env.local` and the Vercel dashboard (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 - [x] Install `@supabase/supabase-js` and create `lib/supabase.ts` client
-- [ ] Run the `dailies`, `daily_logs`, and `tasks` migrations in the Supabase SQL editor (schema below)
+- [x] Run the `dailies`, `daily_logs`, and `tasks` migrations in the Supabase SQL editor (schema below)
 - [x] Today screen reads dailies + logs + tasks from Supabase on mount
 - [x] Toggle daily done/not-done writes to `daily_logs` (insert/delete)
 - [x] Toggle task done writes to `tasks` table (`done` column)
@@ -100,17 +100,17 @@ create table daily_logs (
 
 ---
 
-### Slice 2: Tasks — Add, Complete, and Filter
+### Slice 2: Tasks — Add, Complete, and Filter — ✅ Complete (2026-06-15)
 
 **Goal:** A lightweight task list — add tasks with optional due dates, mark them done, filter by status. No projects, labels, or priorities in v1.
 
-- [ ] Run the `tasks` migration (schema below)
-- [ ] `/tasks` route with a scrollable task list
-- [ ] Quick-add form: title + optional due date picker
-- [ ] Mark task complete: strikethrough animation, task moves to Completed section
-- [ ] Delete task (swipe or trash icon)
-- [ ] Filter tabs: **All · Active · Completed**
-- [ ] Overdue badge: red indicator if due date is in the past and task is still active
+- [x] Run the `tasks` migration (schema below)
+- [x] `/tasks` route with a scrollable task list
+- [x] Quick-add form: title + optional due date picker
+- [x] Mark task complete: strikethrough animation, task moves to Completed section
+- [x] Delete task (swipe or trash icon)
+- [x] Filter tabs: **All · Active · Completed**
+- [x] Overdue badge: red indicator if due date is in the past and task is still active
 
 **Data model additions:**
 

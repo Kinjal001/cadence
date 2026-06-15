@@ -341,11 +341,11 @@ export default function TodayPage() {
 
   if (loading || loadError) {
     return (
-      <div className="flex h-full overflow-hidden bg-[#F8F8FC]">
+      <div className="flex h-full overflow-hidden bg-[#F4F3FF]">
         <div className="hidden md:flex">
           <Sidebar doneCount={0} totalDailies={0} activeNav="today" />
         </div>
-        <main className="flex-1 flex items-center justify-center bg-[#F8F8FC]">
+        <main className="flex-1 flex items-center justify-center bg-[#F4F3FF]">
           {loadError ? (
             <div className="flex flex-col items-center gap-3 max-w-sm text-center px-6">
               <span className="text-[22px]">⚠️</span>
@@ -372,7 +372,7 @@ export default function TodayPage() {
   /* ── Main render ── */
 
   return (
-    <div className="flex h-full overflow-hidden bg-[#F8F8FC] text-[var(--text-primary)] antialiased">
+    <div className="flex h-full overflow-hidden bg-[#F4F3FF] text-[var(--text-primary)] antialiased">
 
       {/* Sidebar — hidden on mobile, shown from md up */}
       <div className="hidden md:flex">
@@ -380,7 +380,7 @@ export default function TodayPage() {
       </div>
 
       {/* Main scroll area */}
-      <main className="flex-1 overflow-y-auto bg-[#F8F8FC] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
+      <main className="flex-1 overflow-y-auto bg-[#F4F3FF] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
 
         {/* Header */}
         <header className="mb-7 md:mb-[30px]">
@@ -450,7 +450,7 @@ export default function TodayPage() {
                       onChange={(e) => setNewDailyName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") cancelDaily(); }}
                       placeholder="Name (required)"
-                      className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                     />
                     <input
                       type="text"
@@ -458,7 +458,7 @@ export default function TodayPage() {
                       onChange={(e) => setNewDailyDesc(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") addDaily(); if (e.key === "Escape") cancelDaily(); }}
                       placeholder="Description — optional"
-                      className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                     />
                   </div>
                   <div className="flex justify-end gap-2">
@@ -534,7 +534,7 @@ export default function TodayPage() {
                 {tasks.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-3 px-[14px] py-3 bg-white border border-[var(--border)] rounded-[12px]"
+                    className="flex items-center gap-3 px-[14px] py-3 bg-white border border-[var(--border)] rounded-[12px] card-lift"
                   >
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                       <span
@@ -556,7 +556,7 @@ export default function TodayPage() {
                       onClick={() => toggleTask(t.id)}
                       className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
                         t.done
-                          ? "bg-[var(--text-primary)] border-[var(--text-primary)] text-white"
+                          ? "bg-[var(--violet)] border-[var(--violet)] text-white"
                           : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"
                       }`}
                     >
@@ -576,7 +576,7 @@ export default function TodayPage() {
                         onChange={(e) => setNewTaskLabel(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
                         placeholder="Task name (required)"
-                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                       />
                       <input
                         type="text"
@@ -584,14 +584,14 @@ export default function TodayPage() {
                         onChange={(e) => setNewTaskCategory(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
                         placeholder="Category — optional"
-                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                       />
                       <input
                         type="date"
                         value={newTaskDeadline}
                         onChange={(e) => setNewTaskDeadline(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
-                        className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                       />
                       {/* Priority */}
                       <div className="flex gap-[6px] pt-[2px]">
