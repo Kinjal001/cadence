@@ -75,7 +75,7 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
 
       {/* Logo */}
       <div className="flex items-center gap-[11px] px-[10px] pb-[22px]">
-        <div className="w-[34px] h-[34px] flex-shrink-0 rounded-[10px] bg-[var(--violet)] flex items-center justify-center gap-[2.5px] shadow-[0_4px_12px_-3px_oklch(0.58_0.16_255_/_0.55)]">
+        <div className="w-[34px] h-[34px] flex-shrink-0 rounded-[10px] bg-[var(--violet)] flex items-center justify-center gap-[2.5px] shadow-[0_4px_12px_-3px_oklch(0.50_0.27_283_/_0.55)]">
           <span className="w-[3px] h-[9px] rounded-sm bg-white opacity-95" />
           <span className="w-[3px] h-[16px] rounded-sm bg-white" />
           <span className="w-[3px] h-[12px] rounded-sm bg-white opacity-85" />
@@ -169,8 +169,9 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
                 <circle cx="40" cy="40" r="34" fill="none" stroke="#E4E4EE" strokeWidth="10" />
                 <circle
                   cx="40" cy="40" r="34" fill="none"
-                  stroke="oklch(0.58 0.16 255)" strokeWidth="10" strokeLinecap="round"
+                  strokeWidth="10" strokeLinecap="round"
                   style={{
+                    stroke: "var(--violet)",
                     strokeDasharray: CIRC,
                     strokeDashoffset: dashOffset,
                     transition: "stroke-dashoffset 0.55s cubic-bezier(0.22, 1, 0.36, 1)",

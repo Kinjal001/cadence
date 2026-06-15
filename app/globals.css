@@ -18,21 +18,26 @@
   --text-muted:     #6E6E88;
   --text-subtle:    #8A8AA4;
 
-  /* Violet brand — oklch(0.58 0.16 255) as specified */
-  --violet:        oklch(0.58 0.16 255);
-  --violet-active: oklch(0.94 0.04 255);
-  --violet-text:   oklch(0.44 0.14 255);
+  /* Violet brand — hue 283 ≈ #7C3AED (proper violet, not blue-violet at hue 255) */
+  --violet:        oklch(0.50 0.27 283);
+  --violet-active: oklch(0.95 0.05 283);
+  --violet-text:   oklch(0.40 0.22 283);
 
   /* Header streak badge */
-  --badge-bg:     oklch(0.95 0.03 255);
-  --badge-border: oklch(0.88 0.06 255);
-  --badge-text:   oklch(0.42 0.14 255);
+  --badge-bg:     oklch(0.95 0.05 283);
+  --badge-border: oklch(0.88 0.09 283);
+  --badge-text:   oklch(0.40 0.22 283);
 }
 
 @theme inline {
   --font-heading: var(--font-bricolage),      sans-serif;
   --font-sans:    var(--font-plus-jakarta),   sans-serif;
   --font-mono:    var(--font-jetbrains-mono), monospace;
+
+  /* Custom brand palette — enables bg-primary, text-primary, border-primary etc. */
+  --color-primary:       #7C3AED;
+  --color-primary-light: #A855F7;
+  --color-primary-dark:  #6D28D9;
 }
 
 /* Prevent browser default blue link color from bleeding into <Link> nav items */
@@ -61,13 +66,13 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Per-daily accent tokens — applied as a className on each card wrapper */
-.accent-violet  { --accent: oklch(0.58 0.16 255); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.58 0.16 255 / 0.35); }
+.accent-violet  { --accent: oklch(0.50 0.27 283); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.50 0.27 283 / 0.35); }
 .accent-blue    { --accent: oklch(0.57 0.15 240); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
 .accent-emerald { --accent: oklch(0.60 0.12 165); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
 .accent-amber   { --accent: oklch(0.72 0.13 76);  --accent-empty: #E8E8F2; --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
 
-/* Insight card gradient (violet brand, updated hue) */
+/* Insight card gradient — violet to deep violet */
 @utility insight-card {
-  background: linear-gradient(150deg, oklch(0.62 0.15 255), oklch(0.52 0.16 248));
-  box-shadow: 0 14px 30px -12px oklch(0.50 0.16 255 / 0.50);
+  background: linear-gradient(150deg, oklch(0.55 0.26 283), oklch(0.44 0.28 273));
+  box-shadow: 0 14px 30px -12px oklch(0.48 0.26 283 / 0.52);
 }
