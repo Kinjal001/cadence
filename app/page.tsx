@@ -37,6 +37,7 @@ interface Task {
   meta: string;
   done: boolean;
   deadline: string | null;
+  completedDate: string | null;
 }
 
 const ACCENT_CYCLE: Accent[] = ["violet", "blue", "emerald", "amber"];
@@ -247,11 +248,12 @@ export default function TodayPage() {
         if (t.category) parts.push(t.category as string);
         if (t.deadline)  parts.push(fmtDeadline(t.deadline as string));
         return {
-          id:       t.id as string,
-          label:    t.title as string,
-          meta:     parts.join(" · "),
-          done:     (t.done as boolean) ?? false,
-          deadline: (t.deadline as string) ?? null,
+          id:            t.id as string,
+          label:         t.title as string,
+          meta:          parts.join(" · "),
+          done:          (t.done as boolean) ?? false,
+          deadline:      (t.deadline as string) ?? null,
+          completedDate: (t.completed_date as string) ?? null,
         };
       });
 
@@ -294,8 +296,10 @@ export default function TodayPage() {
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-    await db().from("tasks").update({ done: !task.done }).eq("id", id);
+    const nowDone = !task.done;
+    const completedDate = nowDone ? todayStr : null;
+    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: nowDone, completedDate } : t));
+    await db().from("tasks").update({ done: nowDone, completed_date: completedDate }).eq("id", id);
   };
 
   const cancelDaily = () => { setAddingDaily(false); setNewDailyName(""); setNewDailyDesc(""); };
@@ -337,6 +341,7 @@ export default function TodayPage() {
         id: data.id as string, label: data.title as string,
         meta: parts.join(" · "), done: false,
         deadline: (data.deadline as string) ?? null,
+        completedDate: null,
       }]);
     }
     cancelTask();
@@ -369,7 +374,17 @@ export default function TodayPage() {
   const todayFullStr  = getTodayFullStr();
   const topStreak     = dailies.length > 0 ? Math.max(...dailies.map((d) => d.streak)) : 0;
   const sortedDailies = [...dailies].sort((a, b) => Number(a.doneOnDate) - Number(b.doneOnDate));
-  const sortedTasks   = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+  // Pending: incomplete, sorted by deadline ascending (no deadline → last)
+  const pendingTasks  = tasks
+    .filter((t) => !t.done)
+    .sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      return a.deadline.localeCompare(b.deadline);
+    });
+  // Completed today: done tasks whose completion date matches the viewed date
+  const completedTodayTasks = tasks.filter((t) => t.done && t.completedDate === viewDate);
   const pastDateTasks = tasks.filter((t) => t.deadline === viewDate);
   const quote         = getDailyQuote(todayStr);
 
@@ -715,16 +730,17 @@ export default function TodayPage() {
             </div>
 
             {isToday ? (
-              /* Today — all tasks + add form */
+              /* Today — pending tasks + completed-today section + add form */
               <div className="flex flex-col gap-2">
-                {tasks.length === 0 && !addingTask && (
+                {pendingTasks.length === 0 && completedTodayTasks.length === 0 && !addingTask && (
                   <p className="text-[13px] text-[var(--text-subtle)] mb-2">No tasks yet — add one below.</p>
                 )}
 
-                {sortedTasks.map((t) => (
+                {/* Pending tasks — sorted by deadline ASC, overdue first */}
+                {pendingTasks.map((t) => (
                   <div key={t.id} className="flex items-center gap-3 px-[13px] py-[11px] bg-white border border-[var(--border)] rounded-[12px] card-lift">
                     <div className="flex flex-col gap-[3px] min-w-0 flex-1">
-                      <span className={`text-[13.5px] font-medium transition-colors ${t.done ? "text-[oklch(0.72_0.012_264)] line-through" : "text-[oklch(0.32_0.03_264)]"}`}>
+                      <span className="text-[13.5px] font-medium text-[oklch(0.32_0.03_264)]">
                         {t.label}
                       </span>
                       {t.meta && (
@@ -733,12 +749,39 @@ export default function TodayPage() {
                     </div>
                     <button
                       onClick={() => toggleTask(t.id)}
-                      className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold cursor-pointer transition-all duration-150 border-2 ${t.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"}`}
+                      className="w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold cursor-pointer transition-all duration-150 border-2 bg-white border-[oklch(0.89_0.006_264)] text-transparent"
                     >
                       ✓
                     </button>
                   </div>
                 ))}
+
+                {/* Completed today — only tasks marked done on the viewed date */}
+                {completedTodayTasks.length > 0 && (
+                  <>
+                    <div className="font-mono text-[9.5px] tracking-[0.09em] uppercase text-[var(--text-subtle)] pt-2 pb-[2px]">
+                      Completed today
+                    </div>
+                    {completedTodayTasks.map((t) => (
+                      <div key={t.id} className="flex items-center gap-3 px-[13px] py-[11px] bg-white border border-[var(--border)] rounded-[12px] card-lift">
+                        <div className="flex flex-col gap-[3px] min-w-0 flex-1">
+                          <span className="text-[13.5px] font-medium text-[oklch(0.72_0.012_264)] line-through">
+                            {t.label}
+                          </span>
+                          {t.meta && (
+                            <span className="font-mono text-[10px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">{t.meta}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => toggleTask(t.id)}
+                          className="w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold cursor-pointer transition-all duration-150 border-2 bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white"
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    ))}
+                  </>
+                )}
 
                 {/* Add task */}
                 {addingTask ? (
