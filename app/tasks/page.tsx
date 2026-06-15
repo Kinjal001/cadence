@@ -218,7 +218,7 @@ export default function TasksPage() {
               <span className="text-[22px]">⚠️</span>
               <span className="font-heading font-semibold text-[15px] text-[var(--text-primary)]">Couldn&apos;t load tasks</span>
               <span className="font-mono text-[11px] text-[var(--text-subtle)] break-all">{loadError}</span>
-              <button onClick={loadData} className="mt-2 px-4 py-2 text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer">
+              <button onClick={loadData} className="mt-2 px-4 py-2 text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors">
                 Retry
               </button>
             </div>
@@ -347,7 +347,7 @@ export default function TasksPage() {
               </div>
               <button
                 onClick={() => setAddingTask(true)}
-                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
+                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
               >
                 <span className="text-[16px] leading-none font-normal">+</span>
                 Add task
@@ -451,7 +451,7 @@ export default function TasksPage() {
                 <button
                   onClick={addTask}
                   disabled={!newTitle.trim()}
-                  className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[9px] border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[9px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Add task
                 </button>
@@ -544,7 +544,7 @@ function EmptyState({ message, onAdd }: { message?: string; onAdd?: () => void }
         {onAdd && (
           <button
             onClick={onAdd}
-            className="px-4 py-[8px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity"
+            className="px-4 py-[8px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors"
           >
             + Add task
           </button>

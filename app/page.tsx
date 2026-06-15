@@ -353,7 +353,7 @@ export default function TodayPage() {
               <span className="font-mono text-[11px] text-[var(--text-subtle)] break-all">{loadError}</span>
               <button
                 onClick={loadData}
-                className="mt-2 px-4 py-2 text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer"
+                className="mt-2 px-4 py-2 text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors"
               >
                 Retry
               </button>
@@ -463,7 +463,7 @@ export default function TodayPage() {
                   </div>
                   <div className="flex justify-end gap-2">
                     <button onClick={cancelDaily} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
-                    <button onClick={addDaily} disabled={!newDailyName.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[9px] border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Add daily</button>
+                    <button onClick={addDaily} disabled={!newDailyName.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[9px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add daily</button>
                   </div>
                 </div>
               ) : (
@@ -618,7 +618,7 @@ export default function TodayPage() {
                     </div>
                     <div className="flex justify-end gap-2">
                       <button onClick={cancelTask} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
-                      <button onClick={addTask} disabled={!newTaskLabel.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[9px] border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">Add task</button>
+                      <button onClick={addTask} disabled={!newTaskLabel.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[9px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add task</button>
                     </div>
                   </div>
                 ) : (

@@ -20,8 +20,9 @@
   --text-subtle:    #9590B0;
 
   /* Brand violet — soft lavender #A78BFA (violet-400) */
-  --violet:        #A78BFA;                    /* primary — buttons, rings, active accents  */
-  --violet-dark:   #7C5CE8;                    /* hover states — perceptibly darker          */
+  --violet:        #A78BFA;                    /* nav active, checkboxes, rings, completion circle */
+  --violet-dark:   #7C5CE8;                    /* button hover — darker, more saturated     */
+  --btn-primary:   #815BEB;                    /* action buttons — richer than --violet but softer than dark */
   --violet-active: #EDE9FE;                    /* nav highlight bg, subtle fills            */
   --violet-text:   oklch(0.44 0.22 293);       /* dark violet for text on light bg          */
 
