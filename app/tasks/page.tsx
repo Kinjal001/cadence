@@ -224,7 +224,7 @@ export default function TasksPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--btn-primary)] animate-spin" />
               <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
             </div>
           )}
@@ -296,8 +296,8 @@ export default function TasksPage() {
         onClick={() => toggleTask(task.id)}
         className={`w-[22px] h-[22px] flex-shrink-0 mt-[1px] rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
           task.done
-            ? "bg-[var(--violet)] border-[var(--violet)] text-white"
-            : "bg-white border-[oklch(0.89_0.006_264)] text-transparent hover:border-[var(--violet)]"
+            ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white"
+            : "bg-white border-[oklch(0.89_0.006_264)] text-transparent hover:border-[var(--btn-primary)]"
         }`}
         title={task.done ? "Mark pending" : "Mark done"}
       >
@@ -365,8 +365,8 @@ export default function TasksPage() {
                   onClick={() => setFilter(tab)}
                   className={`px-[14px] py-[6px] rounded-full text-[13px] font-medium transition-all border cursor-pointer ${
                     filter === tab
-                      ? "bg-[var(--violet)] text-white border-[var(--violet)] shadow-[0_2px_8px_-2px_oklch(0.70_0.19_293_/_0.30)]"
-                      : "bg-white text-[var(--text-secondary)] border-[var(--border)] hover:border-[oklch(0.82_0.07_293)] hover:text-[var(--violet)]"
+                      ? "bg-[var(--btn-primary)] text-white border-[var(--btn-primary)] shadow-[0_2px_8px_-2px_oklch(0.70_0.19_293_/_0.30)]"
+                      : "bg-white text-[var(--text-secondary)] border-[var(--border)] hover:border-[oklch(0.82_0.07_293)] hover:text-[var(--btn-primary)]"
                   }`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}&nbsp;
@@ -512,7 +512,7 @@ export default function TasksPage() {
             key={label}
             href={href}
             className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide no-underline transition-colors ${
-              active ? "text-[var(--violet)]" : "text-[var(--text-secondary)]"
+              active ? "text-[var(--btn-primary)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {icon}

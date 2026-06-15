@@ -39,8 +39,6 @@ const ACCENT_CYCLE: Accent[] = ["violet", "blue", "emerald", "amber"];
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 
-// Returns YYYY-MM-DD in local time, optionally N days in the past.
-// Using local time matters: toISOString() gives UTC, which shifts the date for UTC+5:30.
 function localDate(daysAgo = 0): string {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
@@ -90,28 +88,28 @@ function getInsight(dailies: Daily[]) {
   return { top, nextMilestone, daysToGo, barPct };
 }
 
-/* ─── Bottom nav icons (mobile) ─────────────────────────────────────────────── */
+/* ─── Rhythm ring constant ───────────────────────────────────────────────────── */
+
+const CIRC = 2 * Math.PI * 34;
+
+/* ─── Bottom nav ─────────────────────────────────────────────────────────────── */
 
 const BottomNavItems = [
   {
-    label: "Today", href: "/",
+    label: "Today", href: "/", active: true,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="3.5" width="13" height="11.5" rx="2.5" /><line x1="2.5" y1="7" x2="15.5" y2="7" /><line x1="6" y1="2" x2="6" y2="5" /><line x1="12" y1="2" x2="12" y2="5" /></svg>,
-    active: true,
   },
   {
-    label: "Dailies", href: "/dailies",
+    label: "Dailies", href: "/dailies", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="9" cy="9" r="6.5" /><circle cx="9" cy="9" r="2" /></svg>,
-    active: false,
   },
   {
-    label: "Tasks", href: "/tasks",
+    label: "Tasks", href: "/tasks", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="2.5" width="13" height="13" rx="2.5" /><line x1="6" y1="7" x2="12" y2="7" /><line x1="6" y1="11" x2="12" y2="11" /></svg>,
-    active: false,
   },
   {
-    label: "Insights", href: "/insights",
+    label: "Insights", href: "/insights", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="9" width="3" height="6" rx="1" /><rect x="7.5" y="5.5" width="3" height="9.5" rx="1" /><rect x="12" y="3" width="3" height="12" rx="1" /></svg>,
-    active: false,
   },
 ];
 
@@ -130,6 +128,7 @@ export default function TodayPage() {
   const [newTaskCategory, setNewTaskCategory] = useState("");
   const [newTaskDeadline, setNewTaskDeadline] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -155,7 +154,6 @@ export default function TodayPage() {
       const firstError = e1 ?? e2 ?? e3;
       if (firstError) throw new Error(firstError.message);
 
-      // Group logs by daily_id → Set<dateString>
       const logsByDaily: Record<string, Set<string>> = {};
       for (const log of logsData ?? []) {
         if (!logsByDaily[log.daily_id]) logsByDaily[log.daily_id] = new Set();
@@ -208,7 +206,6 @@ export default function TodayPage() {
     if (!daily) return;
     const today = localDate();
 
-    // Optimistic update first — instant feel
     setDailies((ds) =>
       ds.map((d) =>
         d.id === id
@@ -313,6 +310,11 @@ export default function TodayPage() {
   const greeting = getGreeting("Kinjal");
   const dateStr = getDateStr();
   const topStreak = dailies.length > 0 ? Math.max(...dailies.map((d) => d.streak)) : 0;
+  const completionPct = totalDailies > 0 ? Math.round((doneCount / totalDailies) * 100) : 0;
+  const dashOffset = totalDailies > 0 ? CIRC * (1 - doneCount / totalDailies) : CIRC;
+  // Completed items sink to bottom
+  const sortedDailies = [...dailies].sort((a, b) => Number(a.doneToday) - Number(b.doneToday));
+  const sortedTasks   = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
 
   /* ── Loading screen ── */
 
@@ -337,7 +339,7 @@ export default function TodayPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--btn-primary)] animate-spin" />
               <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
             </div>
           )}
@@ -360,8 +362,8 @@ export default function TodayPage() {
       <main className="flex-1 overflow-y-auto bg-[#F4F3FF] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
 
         {/* Header */}
-        <header className="mb-7 md:mb-[30px]">
-          <div className="flex items-start justify-between gap-6">
+        <header className="mb-4 md:mb-[30px]">
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="font-heading font-bold text-[26px] md:text-[31px] leading-[1.15] tracking-[-0.035em] text-[oklch(0.28_0.04_264)] m-0">
                 {greeting}
@@ -370,15 +372,83 @@ export default function TodayPage() {
                 {dateStr}
               </p>
             </div>
-            {/* Top streak badge */}
-            <div className="flex items-center gap-2 px-[13px] py-2 bg-[var(--badge-bg)] border border-[var(--badge-border)] rounded-[11px] flex-shrink-0">
-              <span className="text-[15px]">⭐</span>
-              <span className="font-mono font-semibold text-[12px] md:text-[13px] tracking-[0.01em] text-[var(--badge-text)] whitespace-nowrap">
-                {topStreak} day best run
-              </span>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Avatar button — mobile only */}
+              <div className="relative md:hidden">
+                <button
+                  onClick={() => setMobileMenuOpen((o) => !o)}
+                  className="w-9 h-9 rounded-[10px] bg-[var(--violet-active)] flex items-center justify-center font-heading font-bold text-[14px] text-[var(--violet-text)] border-none cursor-pointer"
+                  title="Account"
+                >
+                  K
+                </button>
+                {mobileMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMobileMenuOpen(false)} />
+                    <div className="absolute top-[calc(100%+6px)] right-0 z-50 bg-white border border-[#E8E8F2] rounded-[14px] shadow-[0_16px_40px_-12px_rgba(28,28,46,0.18)] p-[6px] flex flex-col min-w-[160px]">
+                      <span className="font-mono text-[9.5px] tracking-[0.08em] uppercase text-[var(--text-subtle)] px-[10px] pt-2 pb-[6px]">Account</span>
+                      <button
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-[10px] px-[10px] py-[9px] rounded-[9px] text-[13px] font-medium text-[var(--text-primary)] hover:bg-[#F4F4F8] cursor-pointer border-none bg-transparent text-left w-full"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="oklch(0.5 0.02 264)" strokeWidth="1.7">
+                          <line x1="3" y1="5.5" x2="15" y2="5.5" /><line x1="3" y1="12.5" x2="15" y2="12.5" />
+                          <circle cx="7" cy="5.5" r="2.2" fill="white" /><circle cx="11" cy="12.5" r="2.2" fill="white" />
+                        </svg>
+                        Settings
+                      </button>
+                      <button
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-[10px] px-[10px] py-[9px] rounded-[9px] text-[13px] font-medium text-[oklch(0.55_0.16_25)] hover:bg-[oklch(0.96_0.02_25)] cursor-pointer border-none bg-transparent text-left w-full"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="oklch(0.58 0.16 25)" strokeWidth="1.7">
+                          <path d="M7 3.5H4.5A1.5 1.5 0 0 0 3 5v8a1.5 1.5 0 0 0 1.5 1.5H7" />
+                          <line x1="8" y1="9" x2="15" y2="9" /><polyline points="12 6 15 9 12 12" />
+                        </svg>
+                        Log out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Streak badge */}
+              <div className="flex items-center gap-2 px-[13px] py-2 bg-[var(--badge-bg)] border border-[var(--badge-border)] rounded-[11px]">
+                <span className="text-[15px]">⭐</span>
+                <span className="font-mono font-semibold text-[12px] md:text-[13px] tracking-[0.01em] text-[var(--badge-text)] whitespace-nowrap">
+                  {topStreak} day best run
+                </span>
+              </div>
             </div>
           </div>
         </header>
+
+        {/* Mobile rhythm ring — replaces sidebar block on small screens */}
+        <div className="md:hidden flex items-center gap-3 bg-white border border-[var(--border)] rounded-[14px] px-4 py-3 mb-5 card-lift">
+          <div className="relative w-10 h-10 flex-shrink-0">
+            <svg width="40" height="40" viewBox="0 0 80 80" className="-rotate-90">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="#E4E4EE" strokeWidth="10" />
+              <circle
+                cx="40" cy="40" r="34" fill="none"
+                strokeWidth="10" strokeLinecap="round"
+                style={{
+                  stroke: "#815BEB",
+                  strokeDasharray: CIRC,
+                  strokeDashoffset: dashOffset,
+                  transition: "stroke-dashoffset 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] font-semibold text-[var(--text-primary)]">
+              {completionPct}%
+            </div>
+          </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-[13px] font-semibold text-[var(--text-primary)]">Today&apos;s rhythm</span>
+            <span className="font-mono text-[11px] text-[var(--text-subtle)]">{doneCount}/{totalDailies} dailies done</span>
+          </div>
+        </div>
 
         {/* Two-column body */}
         <div className="flex flex-col md:flex-row gap-6 md:gap-[26px] items-start">
@@ -401,7 +471,7 @@ export default function TodayPage() {
             )}
 
             <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 232px), 1fr))" }}>
-              {dailies.map((d) => (
+              {sortedDailies.map((d) => (
                 <DailyCard
                   key={d.id}
                   name={d.name}
@@ -508,7 +578,7 @@ export default function TodayPage() {
                   </p>
                 )}
 
-                {tasks.map((t) => (
+                {sortedTasks.map((t) => (
                   <div
                     key={t.id}
                     className="flex items-center gap-3 px-[14px] py-3 bg-white border border-[var(--border)] rounded-[12px] card-lift"
@@ -533,7 +603,7 @@ export default function TodayPage() {
                       onClick={() => toggleTask(t.id)}
                       className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
                         t.done
-                          ? "bg-[var(--violet)] border-[var(--violet)] text-white"
+                          ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white"
                           : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"
                       }`}
                     >
@@ -613,14 +683,14 @@ export default function TodayPage() {
         </div>
       </main>
 
-      {/* Mobile bottom nav — visible only below md */}
+      {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] flex items-stretch z-30">
         {BottomNavItems.map(({ label, href, icon, active }) => (
           <Link
             key={label}
             href={href}
             className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide no-underline transition-colors ${
-              active ? "text-[var(--violet)]" : "text-[var(--text-secondary)]"
+              active ? "text-[var(--btn-primary)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {icon}

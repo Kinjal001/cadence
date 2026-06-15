@@ -637,6 +637,80 @@ Next.js App Router has a typed `Metadata` object you export from `layout.tsx` to
 
 ---
 
+### Mobile UX: sort completed items to the bottom
+
+When users check off items in a list, moving them to the bottom keeps the uncompleted work visible at the top without requiring a separate "done" section. The pattern is a single sort before rendering: `[...arr].sort((a, b) => Number(a.done) - Number(b.done))`. `Number(false) = 0`, `Number(true) = 1`, so unchecked items sort before checked ones. A spread `[...]` creates a copy so the original state array is not mutated.
+
+**Why we used it:** On the Today screen, checking off a daily or task caused it to stay in place — cluttering the top of the list with greyed-out items while pending work hid below. The sort makes the remaining work always visible at the top.
+
+**Where:** `app/page.tsx` — `sortedDailies` and `sortedTasks` derived from state; these are passed to `.map()` instead of the raw arrays.
+
+---
+
+### `isMobile` state — safe window access in a client component
+
+In Next.js, even `'use client'` components are pre-rendered on the server (no `window`). Reading `window.innerWidth` at the top level of a component throws `ReferenceError: window is not defined` on the server. The fix: `const [isMobile, setIsMobile] = useState(false)` starts false (safe for SSR), then a `useEffect` runs only in the browser and sets the real value. Combine with a `resize` listener to keep it in sync.
+
+**Why we used it:** The heatmap compact-weeks calculation and the mobile-only rhythm ring both need to know the actual screen width, which is only available in the browser.
+
+**Where:** `app/insights/page.tsx` — `isMobile` state + `useEffect` that calls `window.innerWidth < 768` and `Math.floor((window.innerWidth - 88) / 18)`.
+
+---
+
+### Responsive `items-start` — why mobile columns shrink to content width
+
+In a `flex-col` container (the default on mobile), `items-start` means `align-items: flex-start` — which makes children shrink horizontally to their content width. On desktop in `flex-row` mode, `items-start` aligns items at the top, which is the desired effect. The fix: change `items-start` to `md:items-start` so it only applies from the tablet breakpoint up. Add `w-full` to both column children so they span the full width when stacked vertically on mobile.
+
+**Why we used it:** The Insights two-column section (bar chart + consistency) had full-width columns on desktop but content-width columns on mobile, leaving a narrow strip instead of spanning the screen. This was the root cause.
+
+**Where:** `app/insights/page.tsx` — the two-column `div` changed from `items-start` to `md:items-start`; both child column divs got `w-full` added.
+
+---
+
+### Compact heatmap with "View full history" toggle
+
+A full 26-week heatmap is 26 × 18px = 468px wide plus labels — too wide for a phone. The solution: calculate how many week columns fit the screen with `Math.floor((window.innerWidth - padding - dayLabels) / cellWidth)`, show only the most recent N weeks by slicing `fullGrid.slice(-N)`, and offer a "View full history" toggle that switches to the full grid. The full history can extend beyond 26 weeks by computing the actual distance from the first ever check-in date.
+
+**Why we used it:** The heatmap was horizontally scrolling on mobile, which felt awkward. Fitting the grid to the screen width and showing a toggle is friendlier — you see recent data immediately, and the full history is one tap away.
+
+**Where:** `app/insights/page.tsx` — `compactWeeks` state, `showFullHeatmap` toggle, `displayWeeks` derived value, `buildHeatmapGrid(numWeeks, ...)` updated to accept a `numWeeks` parameter, "View full history" / "Show less" button below the legend.
+
+---
+
+### Click-outside overlay for dropdown menus
+
+A simple way to close a dropdown when the user clicks anywhere outside it: render a full-screen invisible `div` (`fixed inset-0`) with a lower z-index than the dropdown, and attach an `onClick` that closes the menu. The menu itself has a higher z-index. When the user clicks outside the dropdown, they hit the overlay div; when they click inside the dropdown, the event is intercepted by the dropdown content before it reaches the overlay (event bubbling stops at the dropdown). No `useRef` or `document.addEventListener` needed.
+
+**Why we used it:** The mobile avatar button opens an account menu (Settings / Log out). Tapping anywhere outside needs to dismiss it. The overlay pattern is the simplest implementation — one div, one state setter.
+
+**Where:** `app/page.tsx` — the `mobileMenuOpen` state, the `fixed inset-0 z-40` overlay div, and the dropdown `z-50` panel.
+
+---
+
+### `--btn-primary` (#815BEB) vs `--violet` (#A78BFA) — consistent color roles
+
+The app uses two purple shades with distinct roles:
+- `--violet` (`#A78BFA`) — soft lavender for state indicators: hover text, focus borders, active dots. These need to be subtle and not demanding.
+- `--btn-primary` (`#815BEB`) — richer, darker purple for filled interactive elements: button backgrounds, checkbox fills, loading spinners, active nav tabs, the ring stroke. These need to read as "interactive / selected."
+
+When these got mixed (some filled elements using the soft lavender), buttons and checkboxes looked washed out. The fix was a grep-and-replace across all pages to ensure filled elements always use `--btn-primary`.
+
+**Why we used it:** Separating the two roles means you can tune button contrast independently without affecting hover states and focus rings. `--violet` stays soft; `--btn-primary` stays assertive.
+
+**Where:** `components/Sidebar.tsx`, `app/page.tsx`, `app/tasks/page.tsx`, `app/dailies/page.tsx`, `app/insights/page.tsx` — all `border-t-[var(--btn-primary)]` spinners, `bg-[var(--btn-primary)]` checkboxes, `text-[var(--btn-primary)]` active nav items.
+
+---
+
+### Mobile rhythm ring — duplicating a sidebar widget inline
+
+On desktop, the sidebar always shows the "Today's rhythm" completion ring. On mobile there's no sidebar — so we add a compact inline version directly in the Today page header area, visible only on mobile (`md:hidden`). The ring uses the same SVG + `CIRC` / `dashOffset` math as the sidebar component; it just gets a smaller physical size (40×40px rendering a 80px-viewBox SVG, which scales it down).
+
+**Why we used it:** The completion percentage and ring are core to the daily feel of the app. Hiding them on mobile would make the mobile experience feel feature-reduced vs desktop.
+
+**Where:** `app/page.tsx` — the `md:hidden` rhythm card block, sharing `CIRC` and `dashOffset` with the loading state and using the same SVG arc formula.
+
+---
+
 ### Generating binary PNG files with Node.js built-ins
 PNG is a binary format with a specific structure: an 8-byte magic signature, then "chunks" (length + type + data + CRC32 checksum), with an IHDR chunk (image dimensions), an IDAT chunk (zlib-compressed pixel rows), and IEND. You can generate valid PNGs without any npm packages using Node's built-in `zlib.deflateSync()` for compression and a hand-rolled CRC32 function (a standard lookup-table algorithm). Each pixel row starts with a "filter byte" (0 = no filter), then RGB bytes for each pixel.
 

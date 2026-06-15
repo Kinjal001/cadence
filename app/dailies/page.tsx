@@ -299,7 +299,7 @@ export default function DailiesPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--btn-primary)] animate-spin" />
               <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
             </div>
           )}
@@ -541,7 +541,7 @@ export default function DailiesPage() {
             key={label}
             href={href}
             className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide no-underline transition-colors ${
-              active ? "text-[var(--violet)]" : "text-[var(--text-secondary)]"
+              active ? "text-[var(--btn-primary)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {icon}

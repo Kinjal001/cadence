@@ -73,14 +73,15 @@ function getWeekDates(): string[] {
 }
 
 function buildHeatmapGrid(
+  numWeeks: number,
   totalDailies: number,
   logsByDate: Record<string, number>
 ): { date: string; pct: number; isFuture: boolean }[][] {
   const todayStr = localDate();
   const dayOfWeek = (new Date().getDay() + 6) % 7;
-  const gridStartDaysAgo = dayOfWeek + (HEATMAP_WEEKS - 1) * 7;
+  const gridStartDaysAgo = dayOfWeek + (numWeeks - 1) * 7;
 
-  return Array.from({ length: HEATMAP_WEEKS }, (_, col) =>
+  return Array.from({ length: numWeeks }, (_, col) =>
     Array.from({ length: 7 }, (_, row) => {
       const daysAgo = gridStartDaysAgo - (col * 7 + row);
       const date = localDate(daysAgo);
@@ -134,17 +135,32 @@ const BOTTOM_NAV = [
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function InsightsPage() {
-  const [dailies,      setDailies]      = useState<DailyInsight[]>([]);
-  const [logsByDate,   setLogsByDate]   = useState<Record<string, number>>({});
-  const [totalLogs,    setTotalLogs]    = useState(0);
-  const [perfectDays,  setPerfectDays]  = useState(0);
-  const [bestStreak,   setBestStreak]   = useState(0);
-  const [sidebarDone,  setSidebarDone]  = useState(0);
-  const [sidebarTotal, setSidebarTotal] = useState(0);
-  const [loading,      setLoading]      = useState(true);
-  const [loadError,    setLoadError]    = useState<string | null>(null);
+  const [dailies,          setDailies]          = useState<DailyInsight[]>([]);
+  const [logsByDate,       setLogsByDate]        = useState<Record<string, number>>({});
+  const [totalLogs,        setTotalLogs]         = useState(0);
+  const [perfectDays,      setPerfectDays]       = useState(0);
+  const [bestStreak,       setBestStreak]        = useState(0);
+  const [sidebarDone,      setSidebarDone]       = useState(0);
+  const [sidebarTotal,     setSidebarTotal]      = useState(0);
+  const [loading,          setLoading]           = useState(true);
+  const [loadError,        setLoadError]         = useState<string | null>(null);
+  const [showFullHeatmap,  setShowFullHeatmap]   = useState(false);
+  const [isMobile,         setIsMobile]          = useState(false);
+  const [compactWeeks,     setCompactWeeks]      = useState(16);
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    const update = () => {
+      // 48px page padding (px-6 * 2) + 40px card padding (p-5 * 2) + 13px day-label column
+      const available = window.innerWidth - 48 - 40 - 13;
+      setCompactWeeks(Math.max(4, Math.floor(available / 18)));
+      setIsMobile(window.innerWidth < 768);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   async function loadData() {
     setLoading(true);
@@ -215,9 +231,20 @@ export default function InsightsPage() {
   const totalDailies = dailies.length;
   const today        = localDate();
   const weekDates    = getWeekDates();
-  const heatmapGrid  = buildHeatmapGrid(totalDailies, logsByDate);
   const consistency  = [...dailies].sort((a, b) => b.pct30 - a.pct30);
   const leaderboard  = [...dailies].sort((a, b) => b.streak - a.streak);
+
+  // Full history: weeks from first check-in until today
+  const firstDateStr = Object.keys(logsByDate).sort()[0];
+  const fullHistoryWeeks = firstDateStr
+    ? Math.max(
+        HEATMAP_WEEKS,
+        Math.ceil((Date.now() - new Date(firstDateStr + "T00:00:00").getTime()) / (7 * 86400000)) + 1
+      )
+    : HEATMAP_WEEKS;
+
+  const displayWeeks  = isMobile && !showFullHeatmap ? compactWeeks : fullHistoryWeeks;
+  const heatmapGrid   = buildHeatmapGrid(displayWeeks, totalDailies, logsByDate);
 
   /* ── Loading / Error ── */
 
@@ -244,7 +271,7 @@ export default function InsightsPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--violet)] animate-spin" />
+              <div className="w-8 h-8 rounded-full border-[3px] border-[var(--border)] border-t-[var(--btn-primary)] animate-spin" />
               <span className="font-mono text-[12px] text-[var(--text-subtle)]">Loading…</span>
             </div>
           )}
@@ -275,7 +302,7 @@ export default function InsightsPage() {
           </header>
 
           {/* ── 1. Stats row ── */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { value: totalLogs,    label: "Total check-ins", color: "#A78BFA" },
               { value: bestStreak,   label: "Best streak",     color: "oklch(0.62 0.16 76)" },
@@ -300,10 +327,10 @@ export default function InsightsPage() {
           </div>
 
           {/* ── 2. Two-column: bar chart + consistency ── */}
-          <div className="flex flex-col md:flex-row gap-4 items-start">
+          <div className="flex flex-col md:flex-row gap-4 md:items-start">
 
             {/* Left — This week */}
-            <div className="flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
+            <div className="w-full flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
               <div className="flex items-baseline justify-between mb-4">
                 <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
                   This week
@@ -391,7 +418,7 @@ export default function InsightsPage() {
             </div>
 
             {/* Right — Consistency + Leaderboard */}
-            <div className="flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
+            <div className="w-full flex-1 min-w-0 bg-white border border-[var(--border)] rounded-[16px] p-5">
               <div className="flex items-baseline gap-[5px] mb-4">
                 <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
                   Consistency
@@ -423,7 +450,8 @@ export default function InsightsPage() {
                             style={{ width: `${pctInt}%`, background: barColor }}
                           />
                         </div>
-                        <span className="font-mono text-[11px] w-[26px] text-right flex-shrink-0"
+                        <span
+                          className="font-mono text-[11px] w-[26px] text-right flex-shrink-0"
                           style={{ color: pctInt >= 70 ? barColor : "var(--text-subtle)" }}
                         >
                           {pctInt}%
@@ -474,13 +502,17 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          {/* ── 3. Heatmap — 26 weeks ── */}
+          {/* ── 3. Heatmap ── */}
           <div className="bg-white border border-[var(--border)] rounded-[16px] p-5 overflow-x-auto">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
                 Check-in history
               </h2>
-              <span className="font-mono text-[10px] text-[var(--text-subtle)]">last 6 months</span>
+              <span className="font-mono text-[10px] text-[var(--text-subtle)]">
+                {isMobile && !showFullHeatmap
+                  ? `last ${compactWeeks} weeks`
+                  : "full history"}
+              </span>
             </div>
 
             <div className="flex gap-[4px]">
@@ -526,16 +558,27 @@ export default function InsightsPage() {
               })}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-[6px] mt-4 pt-3 border-t border-[var(--border)]">
-              <span className="font-mono text-[10px] text-[var(--text-subtle)]">Less</span>
-              {["#E8E7F3", "#C4B5FD", "#A78BFA", "#815BEB"].map((c) => (
-                <div
-                  key={c}
-                  style={{ width: "14px", height: "14px", borderRadius: "3px", background: c }}
-                />
-              ))}
-              <span className="font-mono text-[10px] text-[var(--text-subtle)]">More</span>
+            {/* Legend + mobile toggle */}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--border)]">
+              <div className="flex items-center gap-[6px]">
+                <span className="font-mono text-[10px] text-[var(--text-subtle)]">Less</span>
+                {["#E8E7F3", "#C4B5FD", "#A78BFA", "#815BEB"].map((c) => (
+                  <div
+                    key={c}
+                    style={{ width: "14px", height: "14px", borderRadius: "3px", background: c }}
+                  />
+                ))}
+                <span className="font-mono text-[10px] text-[var(--text-subtle)]">More</span>
+              </div>
+
+              {isMobile && (
+                <button
+                  onClick={() => setShowFullHeatmap((v) => !v)}
+                  className="font-mono text-[10px] text-[var(--btn-primary)] bg-transparent border-none cursor-pointer underline underline-offset-2 p-0"
+                >
+                  {showFullHeatmap ? "Show less" : "View full history"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -549,7 +592,7 @@ export default function InsightsPage() {
             key={label}
             href={href}
             className={`flex flex-1 flex-col items-center justify-center gap-1 pt-3 pb-4 text-[10px] font-medium tracking-wide no-underline transition-colors ${
-              active ? "text-[var(--violet)]" : "text-[var(--text-secondary)]"
+              active ? "text-[var(--btn-primary)]" : "text-[var(--text-secondary)]"
             }`}
           >
             {icon}
