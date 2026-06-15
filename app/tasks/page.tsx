@@ -51,7 +51,7 @@ const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
 
 // Palette of (bg, text) pairs — category pills pick one deterministically from the name
 const PILL_PALETTES = [
-  { bg: "oklch(0.95 0.05 283)", text: "oklch(0.40 0.22 283)" }, // violet
+  { bg: "#EDE9FE",               text: "oklch(0.44 0.22 293)" }, // violet
   { bg: "oklch(0.93 0.05 240)", text: "oklch(0.40 0.14 240)" }, // blue
   { bg: "oklch(0.93 0.04 165)", text: "oklch(0.36 0.12 165)" }, // emerald
   { bg: "oklch(0.96 0.05 76)",  text: "oklch(0.46 0.13 76)"  }, // amber
@@ -347,7 +347,7 @@ export default function TasksPage() {
               </div>
               <button
                 onClick={() => setAddingTask(true)}
-                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity shadow-[0_4px_12px_-3px_oklch(0.50_0.27_283_/_0.45)]"
+                className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--violet)] rounded-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
               >
                 <span className="text-[16px] leading-none font-normal">+</span>
                 Add task
@@ -365,8 +365,8 @@ export default function TasksPage() {
                   onClick={() => setFilter(tab)}
                   className={`px-[14px] py-[6px] rounded-full text-[13px] font-medium transition-all border cursor-pointer ${
                     filter === tab
-                      ? "bg-[var(--violet)] text-white border-[var(--violet)] shadow-[0_2px_8px_-2px_oklch(0.50_0.27_283_/_0.4)]"
-                      : "bg-white text-[var(--text-secondary)] border-[var(--border)] hover:border-[oklch(0.80_0.09_283)] hover:text-[var(--violet)]"
+                      ? "bg-[var(--violet)] text-white border-[var(--violet)] shadow-[0_2px_8px_-2px_oklch(0.70_0.19_293_/_0.30)]"
+                      : "bg-white text-[var(--text-secondary)] border-[var(--border)] hover:border-[oklch(0.82_0.07_293)] hover:text-[var(--violet)]"
                   }`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}&nbsp;
@@ -380,7 +380,7 @@ export default function TasksPage() {
 
           {/* Inline add form */}
           {addingTask && (
-            <div className="bg-white border border-[var(--violet)] rounded-[14px] p-4 flex flex-col gap-3 mb-5 shadow-[0_4px_20px_-6px_oklch(0.50_0.27_283_/_0.22)]">
+            <div className="bg-white border border-[var(--violet)] rounded-[14px] p-4 flex flex-col gap-3 mb-5 shadow-[0_4px_20px_-6px_oklch(0.70_0.19_293_/_0.18)]">
               <input
                 autoFocus
                 type="text"
@@ -531,7 +531,7 @@ function EmptyState({ message, onAdd }: { message?: string; onAdd?: () => void }
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center">
       <div className="w-12 h-12 rounded-[14px] bg-[var(--violet-active)] flex items-center justify-center">
-        <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="oklch(0.50 0.27 283)" strokeWidth="1.7">
+        <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="var(--violet)" strokeWidth="1.7">
           <rect x="2.5" y="2.5" width="13" height="13" rx="2.5" />
           <line x1="6" y1="7" x2="12" y2="7" />
           <line x1="6" y1="11" x2="12" y2="11" />
