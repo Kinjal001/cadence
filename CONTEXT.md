@@ -105,7 +105,7 @@ app/
   dailies/
     page.tsx          — Dailies management (add/edit/delete, 6-color picker, streak + best + 7-day history)
   insights/
-    page.tsx          — Insights (this-week bar chart, streak leaderboard, 30-day consistency, stats row, 10-week heatmap)
+    page.tsx          — Insights (stats row, two-col bar chart + consistency/leaderboard, 26-week heatmap)
   tasks/
     page.tsx          — Tasks page (filter tabs, priority, category, deadline, completed section)
 components/
@@ -137,11 +137,11 @@ lib/
 
 **Insights page (`/insights`) — read-only, Supabase-backed:**
 - Header with total check-ins + daily habit count
-- This-week bar chart: 7 bars Mon→Sun, each height = % dailies done that day; today's bar in `--btn-primary`, past bars in muted violet; future bars empty
-- Streak leaderboard: list of all dailies ranked by current streak, showing accent dot, name, current streak 🔥, longest streak ⚡
-- 30-day consistency: each daily with a horizontal progress bar (% of last 30 days checked in)
-- Stats row (4 cards): Total check-ins · Perfect days (last 30) · Best streak · Active dailies
-- 10-week heatmap: 10 columns × 7 rows (Mon–Sun); cells colored by completion % — 4 levels (none / partial-low / partial-high / full); month labels auto-generated when 1st of month falls in column; legend row below
+- Stats row (4 cards, always horizontal): each shows a large colored number — lavender for total check-ins, amber for best streak, emerald for perfect days, slate for active dailies
+- Two-column layout (50/50 on desktop, stacked on mobile):
+  - Left card — "This week" bar chart: 3-row structure (% labels / bars / day labels); today `#815BEB`, past `#C4B5FD`, future slots `#EDE9FE`; bars scale proportionally to daily completion %
+  - Right card — "Consistency · 30 days": each daily's own accent color fills its flex-width progress bar; % shown right-aligned and colored when ≥ 70%. Below a divider: "Streak leaderboard" — dailies ranked by current streak, showing rank, dot, name, 🔥 current, ⚡ best
+- 26-week heatmap (~6 months): 26 columns × 7 rows (Mon–Sun), 14×14px cells, 4-level purple palette (none/low/high/full), month labels above columns, day initials on left, legend below; `overflow-x-auto` on mobile
 - Sidebar "Insights" nav item active; rhythm ring live
 
 **Tasks page (`/tasks`) — Supabase-backed:**

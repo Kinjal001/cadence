@@ -154,11 +154,12 @@ create table tasks (
 **Goal:** A read-only view that surfaces how you're doing — completion rates, streaks over the last four weeks, and a week summary. No new data — everything is derived from existing tables.
 
 - [x] `/insights` route
-- [x] This week's bar chart: 7 bars (Mon→Sun), each bar height = % dailies done that day; today's bar in primary color
-- [x] Streak leaderboard: ranked list of all dailies by current streak, with longest streak shown
-- [x] 30-day consistency: each daily with a horizontal progress bar showing % of days completed
-- [x] Stats row: 4 cards — Total check-ins (all time), Perfect days (last 30), Best streak, Active dailies
-- [x] 10-week heatmap: columns = weeks, rows = Mon–Sun, cells colored by completion % (4-level palette)
+- [x] Stats row (top): 4 cards — Total check-ins (lavender), Best streak (amber), Perfect days (emerald), Active dailies (slate) — each showing a large colored number + label
+- [x] Two-column layout (50/50): left = This week bar chart, right = Consistency + Streak leaderboard
+- [x] Bar chart: 7 bars Mon→Sun, % label above each bar, today in `#815BEB`, past in `#C4B5FD`, future slots in `#EDE9FE`; day labels below
+- [x] Consistency panel: each daily's own accent color on its progress bar, bars flex-fill the column width
+- [x] Streak leaderboard (inside right card, below consistency + divider): rank, dot, name, 🔥 current streak, ⚡ best streak
+- [x] 26-week heatmap (~6 months): columns = weeks, rows = Mon–Sun, 14×14px cells, 4-level color palette, month labels, legend; scrollable on mobile
 - [x] Sidebar "Insights" nav item active; rhythm ring live
 
 **Data model additions:** none (reads from `daily_logs`, `dailies`)

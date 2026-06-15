@@ -549,3 +549,39 @@ A "perfect day" is any day where every current daily was checked in. To count th
 **Why we used it:** It's a motivating metric — shows how many days you hit a 100% completion. Even with 5+ dailies, a perfect day is achievable and feels good to see go up.
 
 **Where:** `loadData()` in `app/insights/page.tsx` — iterates the last 30 days with `localDate(i)` and counts where `byDate[dt] >= totalDailiesCount`.
+
+---
+
+### Semantic color coding for stat numbers
+Different metrics carry different emotional weight. Using distinct colors for each stat card number — instead of one uniform brand color — lets the user read meaning at a glance before even reading the label. Lavender (brand color) for total check-ins signals "this is your main activity." Amber signals energy/momentum for best streak. Emerald signals achievement for perfect days. Slate (neutral) for active dailies signals "this is just a count, not an accomplishment."
+
+**Why we used it:** A single purple number on all four cards made the stats feel uniform and flat. Color differentiation makes the row scannable — your eye goes to whichever number is biggest or most colorful, which is usually the most motivating one.
+
+**Where:** `app/insights/page.tsx` — stats row, inline `style={{ color }}` on the number `div`. Colors: `#A78BFA` (lavender), `oklch(0.62 0.16 76)` (amber), `oklch(0.55 0.16 165)` (emerald), `oklch(0.48 0.03 264)` (slate).
+
+---
+
+### Three-row bar chart structure (labels / bars / day names)
+Instead of floating percentage labels above variable-height bars (which requires absolute positioning and clips at the top), split the chart into three separate horizontal rows: (1) a fixed-height row of percentage labels, (2) a fixed-height row of bar tracks with fills, (3) a fixed-height row of day labels. Each bar column is a `flex-1` div that aligns across all three rows.
+
+**Why we used it:** Floating labels that track bar height look nice in prototypes but are fiddly in CSS — you need absolute positioning, translate offsets, and overflow handling. Three separate rows are simpler: each row aligns itself with `flex justify-center` per column, and there's no absolute positioning at all. The trade-off is that the percentage doesn't visually "sit on top of" the bar, but a fixed-position label above a fixed-position track reads just as clearly.
+
+**Where:** This-week section in `app/insights/page.tsx` — three `div.flex.gap-[5px]` rows stacked vertically: % labels row (mb-[5px]), bars row (h-[84px]), day labels row (mt-[6px]).
+
+---
+
+### `min-w-0` to enforce equal flex columns
+In a flex-row container, `flex-1` on each child makes them share available space equally — in theory. In practice, if a child's content has a natural minimum width (e.g. a bar chart with 7 fixed-gap columns, or a list with long daily names), the flex algorithm uses that as a floor and the column refuses to shrink. Adding `min-w-0` overrides the default `min-width: auto` and tells the column it may shrink to zero, allowing the flex algorithm to divide space correctly.
+
+**Why we used it:** The two-column layout (bar chart left, consistency right) was unequal — the bar chart column was wider because the seven bar divs set a minimum content width. Adding `min-w-0` to both columns fixed it to a true 50/50 split.
+
+**Where:** `app/insights/page.tsx` — the `flex-1 min-w-0` classes on both the left and right column `div`s in the two-column section.
+
+---
+
+### Fixed-width name + `flex-1` bar for stretching progress rows
+In a progress-bar row with three elements (name · bar · percentage), the bar should fill whatever horizontal space is left after the name and percentage take their share. The pattern is: give the name a fixed `width` (e.g. `w-[72px]`) and `flex-shrink-0` so it never compresses, give the percentage a fixed width too, and give the bar container `flex-1` so it expands to fill the rest.
+
+**Why we used it:** The original consistency bars had a fixed `w-[80px]` bar regardless of the panel width, which left large empty gaps on the right when the panel was wider. Switching the bar to `flex-1` means it always stretches to fill the column — the panel can be any width and the bar fills it correctly.
+
+**Where:** `app/insights/page.tsx` — consistency rows: `<span className="... w-[72px] flex-shrink-0">` for names, `<div className="flex-1 h-[5px] ...">` for bars, `<span className="... w-[26px]">` for percentages.
