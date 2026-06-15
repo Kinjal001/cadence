@@ -484,3 +484,68 @@ When the same data appears on multiple pages (dailies appear on both `/` and `/d
 **Why we learned it:** A daily created on the Dailies page with a pink color needed to appear correctly on the Today screen. This only works because both pages read from the same `dailies` table, and the `DailyCard` component on the Today screen had its `Accent` type extended to include `"pink"` and `"cyan"` — and the CSS `.accent-pink` and `.accent-cyan` classes were added to `globals.css`. If any of those three things were missing, pink dailies would render without a color.
 
 **Where:** The `Accent` type lives in `components/DailyCard.tsx` and is imported (via `import type`) by `app/dailies/page.tsx`. The accent CSS classes live in `app/globals.css` and apply globally to any element with the matching class name.
+
+---
+
+## Slice 4: Insights Page
+
+### Read-only derived views — no mutations needed
+Some pages only read data and compute summaries — they don't need add/edit/delete handlers, form state, or optimistic updates. The Insights page is entirely derived from `dailies` + `daily_logs`. All the interesting logic (streaks, consistency %, heatmap grid, perfect days) is pure computation run on the client after a single pair of Supabase fetches.
+
+**Why we used it:** Separating read-only views from CRUD pages keeps the code simpler. There's no state management overhead — just `useState` for the data, a single `loadData()`, and pure helper functions for the computations.
+
+**Where:** `app/insights/page.tsx` — no mutation handlers; all state is set once in `loadData()`.
+
+---
+
+### Day-of-week arithmetic: converting JS's Sunday=0 to Monday=0
+JavaScript's `Date.getDay()` returns 0 for Sunday, 1 for Monday, …, 6 for Saturday. Most apps (and calendars) want weeks to start on Monday. The conversion is: `(date.getDay() + 6) % 7` — this maps Sun→6, Mon→0, Tue→1, …, Sat→5.
+
+**Why we used it:** The weekly bar chart needs to find "Monday of the current week" to align bars left-to-right Mon→Sun. The heatmap also needs Monday=0 so that row 0 of each column is always Monday. Without this conversion, weeks would start on Sunday and the grid would be off by a day.
+
+**Where:** `getWeekDates()` and `buildHeatmapGrid()` in `app/insights/page.tsx` — `const dayOfWeek = (new Date().getDay() + 6) % 7`.
+
+---
+
+### String comparison for ISO dates
+ISO date strings in YYYY-MM-DD format compare correctly as plain strings because they're zero-padded and ordered largest-unit-first. So `"2026-06-15" > "2026-06-10"` is `true`, and `"2026-01-01" < "2026-06-15"` is also `true`. This means you can check if a date is in the future with `date > localDate()` — no `Date` parsing required.
+
+**Why we used it:** In the heatmap, each cell needs to know if it's a future date (to render as empty). Comparing ISO strings directly is simpler and faster than converting to `Date` objects.
+
+**Where:** `buildHeatmapGrid()` in `app/insights/page.tsx` — `const isFuture = date > todayStr`.
+
+---
+
+### Building a grid from date math
+A GitHub-style heatmap is a 2D grid where each cell represents a specific calendar date. The trick is computing which date each cell corresponds to, given its column (week number) and row (day of week). Starting from a known anchor date (Monday of the oldest week), you add `col * 7 + row` days to get each cell's date. Using `localDate(daysAgo)` — which accepts negative values (future) via `setDate` — keeps the helper simple.
+
+**Why we used it:** The 10-week × 7-day heatmap has 70 cells, each needing a date. Generating them programmatically with `Array.from({ length: 10 }, (_, col) => Array.from({ length: 7 }, (_, row) => ...))` is far cleaner than hardcoding.
+
+**Where:** `buildHeatmapGrid()` in `app/insights/page.tsx`.
+
+---
+
+### Month label detection with `.slice(-2) === "01"`
+To show month labels on the heatmap (e.g. "Jun" above the column where June starts), you need to know when the 1st of a month falls within a given column's dates. Since dates are ISO strings (`YYYY-MM-DD`), checking `date.slice(-2) === "01"` tells you if it's the 1st of a month — no `Date` parsing needed.
+
+**Why we used it:** The heatmap doesn't have fixed-width months and weeks don't align neatly to months. Scanning each week's 7 dates for a "-01" suffix is a simple way to find where to place the label.
+
+**Where:** `monthLabel(week)` helper in `app/insights/page.tsx`.
+
+---
+
+### Bar chart with CSS percentage heights in a flex container
+A proportional bar chart can be built entirely with CSS: put each bar in a `flex-col` container, give the container a fixed height, and set the bar's height as `${pct * 100}%`. `flex items-end` ensures bars grow from the bottom up. The track (background) is the full container height; the fill sits at the bottom.
+
+**Why we used it:** No charting library needed — pure CSS handles proportional bars. The today bar uses `var(--btn-primary)` (rich purple), past bars use a muted violet (`oklch(0.70 0.19 293 / 0.55)` — the `/0.55` sets 55% opacity), and future bars show nothing. A minimum height of 5% prevents tiny completions from being invisible.
+
+**Where:** This-week section in `app/insights/page.tsx` — `div` with `flex-1` (grows to fill height), `bg-[#ECEAF8]` track, inner div with `height: \`${Math.max(pct * 100, 5)}%\``.
+
+---
+
+### "Perfect days" — aggregating across all dailies
+A "perfect day" is any day where every current daily was checked in. To count them, you look at how many check-ins happened on each date (`logsByDate[date]`), and compare that to `totalDailies`. If the count equals or exceeds `totalDailies`, that was a perfect day. You can also check this using the heatmap's `pct === 1` condition.
+
+**Why we used it:** It's a motivating metric — shows how many days you hit a 100% completion. Even with 5+ dailies, a perfect day is achievable and feels good to see go up.
+
+**Where:** `loadData()` in `app/insights/page.tsx` — iterates the last 30 days with `localDate(i)` and counts where `byDate[dt] >= totalDailiesCount`.

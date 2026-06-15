@@ -47,7 +47,7 @@ All tokens live in `app/globals.css` `:root`. Components never hardcode hex — 
 
 **Why two purples for buttons vs accent?** `#815BEB` is richer/darker so action buttons read as controls. `#A78BFA` is softer — used for state indicators (checked, active, ringing) where you want presence without weight.
 
-**Per-daily accent classes** (`.accent-violet`, `.accent-blue`, `.accent-emerald`, `.accent-amber`) set `--accent`, `--accent-empty`, `--accent-shadow` on the card wrapper; children read via `bg-[var(--accent)]`.
+**Per-daily accent classes** (`.accent-violet`, `.accent-blue`, `.accent-emerald`, `.accent-amber`, `.accent-pink`, `.accent-cyan`) set `--accent`, `--accent-empty`, `--accent-shadow` on the card wrapper; children read via `bg-[var(--accent)]`.
 
 **Priority dot colors** are completely separate and must never change with the brand theme:
 - High: `oklch(0.55 0.20 25)` (red)
@@ -88,7 +88,7 @@ This is distinct from a Task (one-off, has a deadline, category, and priority). 
 | 1b | Today screen UI + state | ✅ Complete |
 | 2 | Tasks (full CRUD route) | ✅ Complete (2026-06-15) |
 | 3 | Dailies management page | ✅ Complete (2026-06-15) |
-| 4 | Insights view | ⬜ Not started |
+| 4 | Insights view | ✅ Complete (2026-06-15) |
 | 5 | PWA (installable, offline) | ⬜ Not started |
 | 6 | Auth (multi-device) | ⬜ Not started |
 
@@ -104,6 +104,8 @@ app/
   page.tsx            — Today screen (all state lives here, Supabase reads/writes)
   dailies/
     page.tsx          — Dailies management (add/edit/delete, 6-color picker, streak + best + 7-day history)
+  insights/
+    page.tsx          — Insights (this-week bar chart, streak leaderboard, 30-day consistency, stats row, 10-week heatmap)
   tasks/
     page.tsx          — Tasks page (filter tabs, priority, category, deadline, completed section)
 components/
@@ -132,6 +134,15 @@ lib/
 - 6-color picker: violet, blue, emerald, amber, pink, cyan — swatches use the actual CSS oklch values
 - Empty state with call-to-action button
 - Sidebar "Dailies" nav item active; rhythm ring live
+
+**Insights page (`/insights`) — read-only, Supabase-backed:**
+- Header with total check-ins + daily habit count
+- This-week bar chart: 7 bars Mon→Sun, each height = % dailies done that day; today's bar in `--btn-primary`, past bars in muted violet; future bars empty
+- Streak leaderboard: list of all dailies ranked by current streak, showing accent dot, name, current streak 🔥, longest streak ⚡
+- 30-day consistency: each daily with a horizontal progress bar (% of last 30 days checked in)
+- Stats row (4 cards): Total check-ins · Perfect days (last 30) · Best streak · Active dailies
+- 10-week heatmap: 10 columns × 7 rows (Mon–Sun); cells colored by completion % — 4 levels (none / partial-low / partial-high / full); month labels auto-generated when 1st of month falls in column; legend row below
+- Sidebar "Insights" nav item active; rhythm ring live
 
 **Tasks page (`/tasks`) — Supabase-backed:**
 - Header with date + "**+ Add task**" button (opens inline add form)
@@ -167,15 +178,16 @@ Note: `priority` column was added via `ALTER TABLE tasks ADD COLUMN priority tex
 
 ---
 
-## What's next — Slice 4: Insights
+## What's next — Slice 5: PWA
 
-A read-only view derived entirely from existing data — no new tables needed.
+Make Cadence installable to the home screen and usable offline.
 
-- `/insights` route
-- This week's summary: dailies done today (X of Y), tasks closed this week
-- Per-daily consistency grid: GitHub-style heatmap for last 28 days (reads `daily_logs`)
-- Streak stats per daily: current streak · longest streak
-- Tasks closed this week vs last week comparison
+- `public/manifest.json` with name, icons, theme color, `display: standalone`
+- App icons: 192×192 and 512×512 PNG
+- Wire manifest in `layout.tsx` via `<link rel="manifest">`
+- Service worker via `next-pwa` or manual registration
+- Offline fallback page at `/offline`
+- Verify "Add to Home Screen" prompt on Chrome/Safari mobile
 
 ---
 

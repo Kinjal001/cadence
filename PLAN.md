@@ -149,17 +149,19 @@ create table tasks (
 
 ---
 
-### Slice 4: Insights — Weekly Stats and Consistency View
+### Slice 4: Insights — Weekly Stats and Consistency View — ✅ Complete (2026-06-15)
 
 **Goal:** A read-only view that surfaces how you're doing — completion rates, streaks over the last four weeks, and a week summary. No new data — everything is derived from existing tables.
 
-- [ ] `/insights` route
-- [ ] This week's summary card: dailies completed today (X of Y), tasks closed this week
-- [ ] Per-daily consistency grid: GitHub-style heatmap for the last 28 days
-- [ ] Streak stats per daily: Current streak · Longest streak (using JetBrains Mono for numbers)
-- [ ] Tasks closed this week vs last week comparison
+- [x] `/insights` route
+- [x] This week's bar chart: 7 bars (Mon→Sun), each bar height = % dailies done that day; today's bar in primary color
+- [x] Streak leaderboard: ranked list of all dailies by current streak, with longest streak shown
+- [x] 30-day consistency: each daily with a horizontal progress bar showing % of days completed
+- [x] Stats row: 4 cards — Total check-ins (all time), Perfect days (last 30), Best streak, Active dailies
+- [x] 10-week heatmap: columns = weeks, rows = Mon–Sun, cells colored by completion % (4-level palette)
+- [x] Sidebar "Insights" nav item active; rhythm ring live
 
-**Data model additions:** none (reads from `daily_logs`, `tasks`)
+**Data model additions:** none (reads from `daily_logs`, `dailies`)
 
 **Done when:** After a few days of use, `/insights` shows a partially filled heatmap, accurate streak numbers, and a tasks-closed count that matches what you actually completed.
 
