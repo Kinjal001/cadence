@@ -711,6 +711,46 @@ On desktop, the sidebar always shows the "Today's rhythm" completion ring. On mo
 
 ---
 
+### Date navigation: splitting state from derived values
+
+When the same dataset needs to be viewed from different "angles" (today's check-ins vs yesterday's check-ins vs three days ago), the key insight is to store raw data in state and compute the view from it — not re-fetch on every navigation. We split `dailies` state into `dailiesMeta` (habit definitions, never change) + `logsByDaily` (a `Record<id, Set<dateString>>` of all logs). `viewDate` is a third piece of state. The current `Daily[]` array is a plain derived computation — no `useEffect` needed when `viewDate` changes, just a `.map()` inside the component body that runs on every render.
+
+**Why we used it:** If we refetched from Supabase every time the user taps the ← arrow, every date change would show a spinner. With all logs in memory (a personal app log table won't be large), navigation is instant.
+
+**Where:** `app/page.tsx` — `dailiesMeta`, `logsByDaily`, `viewDate` states; `const dailies: Daily[] = dailiesMeta.map(...)` computed inline; `toggleDaily` writes to `viewDate` not always today.
+
+---
+
+### Day-of-year as a stable daily seed
+
+To show the same quote all day but rotate it tomorrow, you need a number that's stable within one calendar day but changes at midnight. The day-of-year (0–364) works perfectly: compute `Math.floor((date - Jan0) / 86400000)` and use `dayOfYear % QUOTES.length` to pick the quote. ISO date strings passed as props are enough — no `Date.now()` or mutable clocks needed, so the result is pure and predictable.
+
+**Why we used it:** The motivational quote card should feel like a consistent companion throughout the day, not randomize on every render. Using the date as a seed is simpler than storing the quote index in state or localStorage.
+
+**Where:** `getDailyQuote(dateStr)` helper in `app/page.tsx`. Called with `todayStr` (the real current date), not `viewDate`, so the quote stays consistent even when reviewing past days.
+
+---
+
+### CSS left-border blockquote card
+
+The "warm quote" design pattern uses a thick colored left border (`border-left: 3px solid #815BEB`) on a lightly tinted background, with the right corners rounded and no outer border. This creates a blockquote feel — visually lighter than a full card border, calmer than a colored background alone. The left edge acts as an accent mark rather than a container.
+
+**Why we used it:** The quote card needs to feel softer and more literary than the data cards. A full `card-lift` border would make it look like another task card. The left-only border signals "this is a thought, not a widget."
+
+**Where:** `app/page.tsx` — the quote `div` uses `style={{ borderLeft: "3px solid #815BEB", background: "oklch(0.965 0.016 293)" }}` with `rounded-r-[12px]` (right corners only).
+
+---
+
+### Conditional right panel (today vs. past view)
+
+When navigating to a past date, the "Up next" tasks section doesn't make sense — you can't add tasks in the past, and "pending" tasks aren't meaningful for a historical view. The right panel switches between two different JSX trees based on `isToday`: the full interactive task section (add form, toggles, sort) vs. a read-only "Tasks" section filtered to `tasks.filter(t => t.deadline === viewDate)`. This is a simple ternary: `{isToday ? <UpNextSection /> : <PastTasksSection />}`.
+
+**Why we used it:** Showing "0 pending" tasks and an add-task form when you're looking at last Tuesday would be confusing. Switching the panel content based on view context keeps the UI honest about what date you're interacting with.
+
+**Where:** `app/page.tsx` — the `{isToday ? (...) : (...)}` block in the right column, after the streak insight card.
+
+---
+
 ### Generating binary PNG files with Node.js built-ins
 PNG is a binary format with a specific structure: an 8-byte magic signature, then "chunks" (length + type + data + CRC32 checksum), with an IHDR chunk (image dimensions), an IDAT chunk (zlib-compressed pixel rows), and IEND. You can generate valid PNGs without any npm packages using Node's built-in `zlib.deflateSync()` for compression and a hand-rolled CRC32 function (a standard lookup-table algorithm). Each pixel row starts with a "filter byte" (0 = no filter), then RGB bytes for each pixel.
 
