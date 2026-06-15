@@ -69,10 +69,12 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Per-daily accent tokens — applied as a className on each card wrapper */
-.accent-violet  { --accent: #A78BFA;             --accent-empty: #EDE9FE; --accent-shadow: oklch(0.70 0.19 293 / 0.28); }
-.accent-blue    { --accent: oklch(0.57 0.15 240); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
-.accent-emerald { --accent: oklch(0.60 0.12 165); --accent-empty: #E8E8F2; --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
-.accent-amber   { --accent: oklch(0.72 0.13 76);  --accent-empty: #E8E8F2; --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
+.accent-violet  { --accent: #A78BFA;              --accent-empty: #EDE9FE;              --accent-shadow: oklch(0.70 0.19 293 / 0.28); }
+.accent-blue    { --accent: oklch(0.57 0.15 240);  --accent-empty: #E8E8F2;              --accent-shadow: oklch(0.57 0.15 240 / 0.35); }
+.accent-emerald { --accent: oklch(0.60 0.12 165);  --accent-empty: #E8E8F2;              --accent-shadow: oklch(0.60 0.12 165 / 0.35); }
+.accent-amber   { --accent: oklch(0.72 0.13 76);   --accent-empty: #E8E8F2;              --accent-shadow: oklch(0.72 0.13 76  / 0.35); }
+.accent-pink    { --accent: oklch(0.68 0.16 350);  --accent-empty: oklch(0.94 0.04 350); --accent-shadow: oklch(0.68 0.16 350 / 0.35); }
+.accent-cyan    { --accent: oklch(0.62 0.14 200);  --accent-empty: oklch(0.93 0.04 200); --accent-shadow: oklch(0.62 0.14 200 / 0.35); }
 
 /* Soft lavender-tinted card shadow — lifts white cards off the #F4F3FF background */
 @utility card-lift {

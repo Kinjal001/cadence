@@ -1,6 +1,6 @@
 "use client";
 
-export type Accent = "violet" | "blue" | "emerald" | "amber";
+export type Accent = "violet" | "blue" | "emerald" | "amber" | "pink" | "cyan";
 
 export interface DailyCardProps {
   name: string;
