@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type NavKey = "today" | "dailies" | "tasks" | "insights";
 
-const NAV_ITEMS: { key: NavKey; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { key: NavKey; label: string; href: string; icon: React.ReactNode }[] = [
   {
     key: "today",
     label: "Today",
+    href: "/",
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" strokeWidth="1.7">
         <rect x="2.5" y="3.5" width="13" height="11.5" rx="2.5" stroke="currentColor" />
@@ -20,6 +22,7 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   {
     key: "dailies",
     label: "Dailies",
+    href: "/dailies",
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
         <circle cx="9" cy="9" r="6.5" />
@@ -30,6 +33,7 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   {
     key: "tasks",
     label: "Tasks",
+    href: "/tasks",
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="2.5" y="2.5" width="13" height="13" rx="2.5" />
@@ -41,6 +45,7 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   {
     key: "insights",
     label: "Insights",
+    href: "/insights",
     icon: (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7">
         <rect x="3" y="9" width="3" height="6" rx="1" />
@@ -87,23 +92,23 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
 
       {/* Nav */}
       <nav className="flex flex-col gap-[3px]">
-        {NAV_ITEMS.map(({ key, label, icon }) => {
+        {NAV_ITEMS.map(({ key, label, href, icon }) => {
           const active = key === activeNav;
           return (
-            <div
+            <Link
               key={key}
-              className={`flex items-center gap-3 px-3 py-[9px] rounded-[10px] text-sm font-medium cursor-pointer transition-colors ${
+              href={href}
+              className={`flex items-center gap-3 px-3 py-[9px] rounded-[10px] text-sm font-medium no-underline transition-colors ${
                 active
                   ? "bg-[var(--violet-active)] text-[var(--text-primary)] font-semibold"
                   : "text-[var(--text-secondary)] hover:bg-[#F0F0F8]"
               }`}
-              style={{ color: active ? undefined : undefined }}
             >
               <span className={active ? "text-[var(--violet)]" : "text-current"}>
                 {icon}
               </span>
               {label}
-            </div>
+            </Link>
           );
         })}
       </nav>
@@ -150,7 +155,6 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
 
         {/* Avatar + rhythm row */}
         <div className="flex gap-[10px] items-center">
-          {/* Standalone avatar — no surrounding box */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
             className="w-10 h-10 flex-shrink-0 rounded-[11px] border-none cursor-pointer flex items-center justify-center font-heading font-bold text-[14px] bg-[var(--violet-active)] text-[var(--violet-text)]"
@@ -159,7 +163,6 @@ export function Sidebar({ doneCount, totalDailies, activeNav = "today" }: Props)
             K
           </button>
 
-          {/* Rhythm ring block */}
           <div className="flex items-center gap-[11px] flex-1 min-w-0 bg-[#F4F4F8] border border-[var(--border)] rounded-[14px] px-3 py-[9px]">
             <div className="relative w-10 h-10 flex-shrink-0">
               <svg width="40" height="40" viewBox="0 0 80 80" className="-rotate-90">
