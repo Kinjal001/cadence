@@ -23,6 +23,7 @@ interface DailyInsight {
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const HEATMAP_WEEKS = 26;
 
 const ACCENT_BG: Record<Accent, string> = {
   violet:  "#A78BFA",
@@ -67,7 +68,7 @@ function computeLongestStreak(dates: Set<string>): number {
 }
 
 function getWeekDates(): string[] {
-  const dayOfWeek = (new Date().getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const dayOfWeek = (new Date().getDay() + 6) % 7;
   return Array.from({ length: 7 }, (_, i) => localDate(dayOfWeek - i)).reverse();
 }
 
@@ -77,9 +78,9 @@ function buildHeatmapGrid(
 ): { date: string; pct: number; isFuture: boolean }[][] {
   const todayStr = localDate();
   const dayOfWeek = (new Date().getDay() + 6) % 7;
-  const gridStartDaysAgo = dayOfWeek + 63; // Mon of week 9 weeks ago
+  const gridStartDaysAgo = dayOfWeek + (HEATMAP_WEEKS - 1) * 7;
 
-  return Array.from({ length: 10 }, (_, col) =>
+  return Array.from({ length: HEATMAP_WEEKS }, (_, col) =>
     Array.from({ length: 7 }, (_, row) => {
       const daysAgo = gridStartDaysAgo - (col * 7 + row);
       const date = localDate(daysAgo);
@@ -113,39 +114,35 @@ function monthLabel(week: { date: string }[]): string {
 
 const BOTTOM_NAV = [
   {
-    label: "Today", href: "/",
+    label: "Today", href: "/", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="3.5" width="13" height="11.5" rx="2.5" /><line x1="2.5" y1="7" x2="15.5" y2="7" /><line x1="6" y1="2" x2="6" y2="5" /><line x1="12" y1="2" x2="12" y2="5" /></svg>,
-    active: false,
   },
   {
-    label: "Dailies", href: "/dailies",
+    label: "Dailies", href: "/dailies", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="9" cy="9" r="6.5" /><circle cx="9" cy="9" r="2" /></svg>,
-    active: false,
   },
   {
-    label: "Tasks", href: "/tasks",
+    label: "Tasks", href: "/tasks", active: false,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="2.5" y="2.5" width="13" height="13" rx="2.5" /><line x1="6" y1="7" x2="12" y2="7" /><line x1="6" y1="11" x2="12" y2="11" /></svg>,
-    active: false,
   },
   {
-    label: "Insights", href: "/insights",
+    label: "Insights", href: "/insights", active: true,
     icon: <svg width="22" height="22" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="9" width="3" height="6" rx="1" /><rect x="7.5" y="5.5" width="3" height="9.5" rx="1" /><rect x="12" y="3" width="3" height="12" rx="1" /></svg>,
-    active: true,
   },
 ];
 
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function InsightsPage() {
-  const [dailies,     setDailies]     = useState<DailyInsight[]>([]);
-  const [logsByDate,  setLogsByDate]  = useState<Record<string, number>>({});
-  const [totalLogs,   setTotalLogs]   = useState(0);
-  const [perfectDays, setPerfectDays] = useState(0);
-  const [bestStreak,  setBestStreak]  = useState(0);
-  const [sidebarDone, setSidebarDone] = useState(0);
-  const [sidebarTotal,setSidebarTotal]= useState(0);
-  const [loading,     setLoading]     = useState(true);
-  const [loadError,   setLoadError]   = useState<string | null>(null);
+  const [dailies,      setDailies]      = useState<DailyInsight[]>([]);
+  const [logsByDate,   setLogsByDate]   = useState<Record<string, number>>({});
+  const [totalLogs,    setTotalLogs]    = useState(0);
+  const [perfectDays,  setPerfectDays]  = useState(0);
+  const [bestStreak,   setBestStreak]   = useState(0);
+  const [sidebarDone,  setSidebarDone]  = useState(0);
+  const [sidebarTotal, setSidebarTotal] = useState(0);
+  const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -215,12 +212,11 @@ export default function InsightsPage() {
 
   /* ── Derived ── */
 
-  const totalDailies  = dailies.length;
-  const today         = localDate();
-  const weekDates     = getWeekDates();
-  const heatmapGrid   = buildHeatmapGrid(totalDailies, logsByDate);
-  const leaderboard   = [...dailies].sort((a, b) => b.streak - a.streak);
-  const consistency   = [...dailies].sort((a, b) => b.pct30 - a.pct30);
+  const totalDailies = dailies.length;
+  const today        = localDate();
+  const weekDates    = getWeekDates();
+  const heatmapGrid  = buildHeatmapGrid(totalDailies, logsByDate);
+  const consistency  = [...dailies].sort((a, b) => b.pct30 - a.pct30);
 
   /* ── Loading / Error ── */
 
@@ -265,7 +261,7 @@ export default function InsightsPage() {
       </div>
 
       <main className="flex-1 overflow-y-auto bg-[#F4F3FF] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
-        <div className="max-w-[760px] flex flex-col gap-8">
+        <div className="max-w-[820px] flex flex-col gap-5">
 
           {/* ── Header ── */}
           <header>
@@ -277,13 +273,45 @@ export default function InsightsPage() {
             </p>
           </header>
 
-          {/* ── This Week ── */}
-          <section>
-            <h2 className="font-heading font-bold text-[17px] tracking-[-0.02em] text-[oklch(0.32_0.035_264)] mb-3 m-0">
-              This week
-            </h2>
-            <div className="bg-white border border-[var(--border)] rounded-[16px] p-5 card-lift">
-              <div className="flex items-end gap-[5px]" style={{ height: "88px" }}>
+          {/* ── 1. Stats row ── */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { value: totalLogs,    label: "Total check-ins", color: "#A78BFA" },
+              { value: bestStreak,   label: "Best streak",     color: "oklch(0.62 0.16 76)" },
+              { value: perfectDays,  label: "Perfect days",    color: "oklch(0.55 0.16 165)" },
+              { value: totalDailies, label: "Active dailies",  color: "oklch(0.48 0.03 264)" },
+            ].map(({ value, label, color }) => (
+              <div
+                key={label}
+                className="bg-white border border-[var(--border)] rounded-[12px] px-4 py-[14px]"
+              >
+                <div
+                  className="font-mono font-bold text-[26px] md:text-[30px] leading-none"
+                  style={{ color }}
+                >
+                  {value}
+                </div>
+                <div className="text-[11px] md:text-[12px] font-medium text-[var(--text-secondary)] mt-[8px] leading-[1.35]">
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── 2. Two-column: bar chart + consistency ── */}
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+
+            {/* Left — This week */}
+            <div className="flex-1 w-full bg-white border border-[var(--border)] rounded-[16px] p-5">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
+                  This week
+                </h2>
+                <span className="font-mono text-[10px] text-[var(--text-subtle)]">% done</span>
+              </div>
+
+              {/* % labels row */}
+              <div className="flex gap-[5px] mb-[5px]">
                 {weekDates.map((date, i) => {
                   const isToday = date === today;
                   const isFuture = date > today;
@@ -291,28 +319,67 @@ export default function InsightsPage() {
                   const pct = totalDailies > 0 && !isFuture
                     ? Math.min(count / totalDailies, 1)
                     : 0;
-
+                  const pctInt = Math.round(pct * 100);
                   return (
-                    <div key={date} className="flex-1 flex flex-col items-center gap-[7px] h-full">
-                      <div className="w-full flex-1 rounded-[5px] bg-[#ECEAF8] overflow-hidden flex items-end">
-                        {!isFuture && pct > 0 && (
-                          <div
-                            className="w-full rounded-[5px]"
-                            style={{
-                              height: `${Math.max(pct * 100, 5)}%`,
-                              background: isToday
-                                ? "var(--btn-primary)"
-                                : "oklch(0.70 0.19 293 / 0.55)",
-                            }}
-                          />
-                        )}
-                      </div>
+                    <div key={i} className="flex-1 flex justify-center">
+                      {!isFuture && (
+                        <span
+                          className="font-mono text-[9.5px] leading-none"
+                          style={{
+                            color: pctInt === 0
+                              ? "var(--text-subtle)"
+                              : isToday ? "#815BEB" : "#9B86E8",
+                          }}
+                        >
+                          {pctInt}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bars row */}
+              <div className="flex gap-[5px]" style={{ height: "84px" }}>
+                {weekDates.map((date, i) => {
+                  const isToday = date === today;
+                  const isFuture = date > today;
+                  const count = logsByDate[date] ?? 0;
+                  const pct = totalDailies > 0 && !isFuture
+                    ? Math.min(count / totalDailies, 1)
+                    : 0;
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-[5px] overflow-hidden flex items-end"
+                      style={{ background: "#EDE9FE" }}
+                    >
+                      {!isFuture && pct > 0 && (
+                        <div
+                          className="w-full rounded-[5px]"
+                          style={{
+                            height: `${Math.max(pct * 100, 5)}%`,
+                            background: isToday ? "#815BEB" : "#C4B5FD",
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Day label row */}
+              <div className="flex gap-[5px] mt-[6px]">
+                {weekDates.map((date, i) => {
+                  const isToday = date === today;
+                  return (
+                    <div key={i} className="flex-1 flex justify-center">
                       <span
-                        className={`font-mono text-[9.5px] whitespace-nowrap ${
-                          isToday
-                            ? "text-[var(--btn-primary)] font-bold"
-                            : "text-[var(--text-subtle)]"
-                        }`}
+                        className="font-mono text-[9px]"
+                        style={{
+                          color: isToday ? "#815BEB" : "var(--text-subtle)",
+                          fontWeight: isToday ? 700 : 400,
+                        }}
                       >
                         {DAY_LABELS[i]}
                       </span>
@@ -321,176 +388,117 @@ export default function InsightsPage() {
                 })}
               </div>
             </div>
-          </section>
 
-          {/* ── Streak Leaderboard ── */}
-          <section>
-            <h2 className="font-heading font-bold text-[17px] tracking-[-0.02em] text-[oklch(0.32_0.035_264)] mb-3 m-0">
-              Streak leaderboard
-            </h2>
-            {dailies.length === 0 ? (
-              <p className="text-[13px] text-[var(--text-subtle)]">
-                Add some dailies and start checking in to see your streaks here.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {leaderboard.map((daily, i) => (
+            {/* Right — Consistency */}
+            <div className="flex-1 w-full bg-white border border-[var(--border)] rounded-[16px] p-5">
+              <div className="flex items-baseline gap-[5px] mb-4">
+                <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
+                  Consistency
+                </h2>
+                <span className="font-mono text-[10px] text-[var(--text-subtle)]">· 30 days</span>
+              </div>
+
+              {dailies.length === 0 ? (
+                <p className="text-[12.5px] text-[var(--text-subtle)]">
+                  No dailies yet. Add some to track consistency.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-[13px]">
+                  {consistency.map((daily) => {
+                    const pctInt = Math.round(daily.pct30 * 100);
+                    const barColor = ACCENT_BG[daily.accent];
+                    return (
+                      <div key={daily.id} className="flex items-center gap-[9px]">
+                        <span
+                          className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                          style={{ background: barColor }}
+                        />
+                        <span className="font-medium text-[12.5px] text-[var(--text-primary)] truncate min-w-0 flex-1">
+                          {daily.name}
+                        </span>
+                        <div className="w-[80px] flex-shrink-0 h-[5px] rounded-full bg-[#EDE9FE] overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pctInt}%`, background: barColor }}
+                          />
+                        </div>
+                        <span className="font-mono text-[11px] w-[26px] text-right flex-shrink-0"
+                          style={{ color: pctInt >= 70 ? barColor : "var(--text-subtle)" }}
+                        >
+                          {pctInt}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── 3. Heatmap — 26 weeks ── */}
+          <div className="bg-white border border-[var(--border)] rounded-[16px] p-5 overflow-x-auto">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="font-heading font-bold text-[14px] tracking-[-0.01em] text-[oklch(0.28_0.04_264)] m-0">
+                Check-in history
+              </h2>
+              <span className="font-mono text-[10px] text-[var(--text-subtle)]">last 6 months</span>
+            </div>
+
+            <div className="flex gap-[4px]">
+              {/* Day-of-week labels */}
+              <div className="flex flex-col gap-[4px] mr-[3px] flex-shrink-0">
+                <div style={{ height: "16px" }} />
+                {["M", "", "W", "", "F", "", ""].map((label, i) => (
                   <div
-                    key={daily.id}
-                    className="flex items-center gap-3 bg-white border border-[var(--border)] rounded-[12px] px-4 py-[11px] card-lift"
+                    key={i}
+                    className="flex items-center font-mono text-[10px] text-[var(--text-subtle)]"
+                    style={{ width: "10px", height: "14px" }}
                   >
-                    <span className="font-mono text-[11.5px] text-[var(--text-subtle)] w-4 text-right flex-shrink-0">
-                      {i + 1}
-                    </span>
-                    <span
-                      className="w-[8px] h-[8px] rounded-full flex-shrink-0"
-                      style={{ background: ACCENT_BG[daily.accent] }}
-                    />
-                    <span className="flex-1 font-medium text-[14px] text-[var(--text-primary)] truncate min-w-0">
-                      {daily.name}
-                    </span>
-                    <div className="flex items-center gap-[4px] font-mono text-[12px] text-[oklch(0.55_0.018_264)] flex-shrink-0">
-                      <span className="text-[11px]">🔥</span>
-                      <span>{daily.streak}d</span>
-                    </div>
-                    <div className="flex items-center gap-[4px] font-mono text-[11.5px] text-[var(--text-subtle)] flex-shrink-0">
-                      <span>⚡</span>
-                      <span>{daily.longestStreak}d best</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ── 30-Day Consistency ── */}
-          <section>
-            <h2 className="font-heading font-bold text-[17px] tracking-[-0.02em] text-[oklch(0.32_0.035_264)] mb-3 m-0">
-              30-day consistency
-            </h2>
-            {dailies.length === 0 ? (
-              <p className="text-[13px] text-[var(--text-subtle)]">
-                No dailies to show yet.
-              </p>
-            ) : (
-              <div className="bg-white border border-[var(--border)] rounded-[16px] p-5 card-lift flex flex-col gap-4">
-                {consistency.map((daily) => (
-                  <div key={daily.id} className="flex items-center gap-3">
-                    <span
-                      className="w-[8px] h-[8px] rounded-full flex-shrink-0"
-                      style={{ background: ACCENT_BG[daily.accent] }}
-                    />
-                    <span className="font-medium text-[13px] text-[var(--text-primary)] truncate w-[100px] flex-shrink-0">
-                      {daily.name}
-                    </span>
-                    <div className="flex-1 h-[6px] rounded-full bg-[#ECEAF8] overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.round(daily.pct30 * 100)}%`,
-                          background: "var(--violet)",
-                        }}
-                      />
-                    </div>
-                    <span className="font-mono text-[11.5px] text-[var(--text-subtle)] w-[30px] text-right flex-shrink-0">
-                      {Math.round(daily.pct30 * 100)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ── Stats Row ── */}
-          <section>
-            <h2 className="font-heading font-bold text-[17px] tracking-[-0.02em] text-[oklch(0.32_0.035_264)] mb-3 m-0">
-              All-time stats
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { value: totalLogs,    label: "Total check-ins", sub: "all time" },
-                { value: perfectDays,  label: "Perfect days",    sub: "last 30 days" },
-                { value: bestStreak,   label: "Best streak",     sub: "days ever" },
-                { value: totalDailies, label: "Active dailies",  sub: "habits tracked" },
-              ].map(({ value, label, sub }) => (
-                <div key={label} className="bg-white border border-[var(--border)] rounded-[14px] p-4 card-lift">
-                  <div className="font-mono font-bold text-[30px] leading-none text-[var(--text-primary)]">
-                    {value}
-                  </div>
-                  <div className="text-[13px] font-medium text-[var(--text-primary)] mt-[10px] leading-[1.3]">
                     {label}
                   </div>
-                  <div className="font-mono text-[10.5px] text-[var(--text-subtle)] mt-[2px]">
-                    {sub}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Heatmap ── */}
-          <section>
-            <h2 className="font-heading font-bold text-[17px] tracking-[-0.02em] text-[oklch(0.32_0.035_264)] mb-3 m-0">
-              Check-in history
-            </h2>
-            <div className="bg-white border border-[var(--border)] rounded-[16px] p-5 card-lift overflow-x-auto">
-              <div className="flex gap-[4px]" style={{ minWidth: "200px" }}>
-
-                {/* Day-of-week labels */}
-                <div className="flex flex-col gap-[4px] mr-[2px] flex-shrink-0">
-                  <div style={{ height: "16px" }} />
-                  {["M", "", "W", "", "F", "", ""].map((label, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center font-mono text-[10px] text-[var(--text-subtle)]"
-                      style={{ width: "10px", height: "13px" }}
-                    >
-                      {label}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Week columns */}
-                {heatmapGrid.map((week, colIdx) => {
-                  const mLabel = monthLabel(week);
-                  return (
-                    <div key={colIdx} className="flex flex-col gap-[4px] flex-shrink-0">
-                      <div
-                        className="flex items-end font-mono text-[9px] text-[var(--text-subtle)] leading-none"
-                        style={{ height: "16px" }}
-                      >
-                        {mLabel}
-                      </div>
-                      {week.map(({ date, pct, isFuture }, rowIdx) => (
-                        <div
-                          key={rowIdx}
-                          title={isFuture ? "" : `${date}: ${Math.round(pct * 100)}% done`}
-                          style={{
-                            width: "13px",
-                            height: "13px",
-                            borderRadius: "3px",
-                            background: cellColor(pct, isFuture),
-                          }}
-                        />
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Legend */}
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-[var(--border)]">
-                <span className="font-mono text-[10px] text-[var(--text-subtle)]">Less</span>
-                {["#E8E7F3", "#C4B5FD", "#A78BFA", "#815BEB"].map((c) => (
-                  <div
-                    key={c}
-                    style={{ width: "13px", height: "13px", borderRadius: "3px", background: c }}
-                  />
                 ))}
-                <span className="font-mono text-[10px] text-[var(--text-subtle)]">More</span>
               </div>
+
+              {/* Week columns */}
+              {heatmapGrid.map((week, colIdx) => {
+                const mLabel = monthLabel(week);
+                return (
+                  <div key={colIdx} className="flex flex-col gap-[4px] flex-shrink-0">
+                    <div
+                      className="flex items-end font-mono text-[9px] text-[var(--text-subtle)] leading-none"
+                      style={{ height: "16px" }}
+                    >
+                      {mLabel}
+                    </div>
+                    {week.map(({ date, pct, isFuture }, rowIdx) => (
+                      <div
+                        key={rowIdx}
+                        title={isFuture ? "" : `${date}: ${Math.round(pct * 100)}% done`}
+                        style={{
+                          width: "14px",
+                          height: "14px",
+                          borderRadius: "3px",
+                          background: cellColor(pct, isFuture),
+                        }}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             </div>
-          </section>
+
+            {/* Legend */}
+            <div className="flex items-center gap-[6px] mt-4 pt-3 border-t border-[var(--border)]">
+              <span className="font-mono text-[10px] text-[var(--text-subtle)]">Less</span>
+              {["#E8E7F3", "#C4B5FD", "#A78BFA", "#815BEB"].map((c) => (
+                <div
+                  key={c}
+                  style={{ width: "14px", height: "14px", borderRadius: "3px", background: c }}
+                />
+              ))}
+              <span className="font-mono text-[10px] text-[var(--text-subtle)]">More</span>
+            </div>
+          </div>
 
         </div>
       </main>
