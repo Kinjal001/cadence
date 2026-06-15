@@ -585,3 +585,61 @@ In a progress-bar row with three elements (name · bar · percentage), the bar s
 **Why we used it:** The original consistency bars had a fixed `w-[80px]` bar regardless of the panel width, which left large empty gaps on the right when the panel was wider. Switching the bar to `flex-1` means it always stretches to fill the column — the panel can be any width and the bar fills it correctly.
 
 **Where:** `app/insights/page.tsx` — consistency rows: `<span className="... w-[72px] flex-shrink-0">` for names, `<div className="flex-1 h-[5px] ...">` for bars, `<span className="... w-[26px]">` for percentages.
+
+---
+
+## Slice 5: PWA Setup
+
+### Web App Manifest
+A "web app manifest" is a JSON file that tells the browser how to present your app when it's installed on a device. It's what enables "Add to Home Screen" — the browser reads the manifest to know the app's name, icon, background color, and whether to run it in standalone mode (no browser chrome). Without a manifest, the browser won't offer the install prompt.
+
+**Why we used it:** To make Cadence installable as a PWA on Android and iOS. The manifest at `public/manifest.json` sets `display: standalone` so the app opens full-screen without a browser URL bar, like a native app.
+
+**Where:** `public/manifest.json` — linked via `metadata.manifest = "/manifest.json"` in `app/layout.tsx`.
+
+---
+
+### Service Worker
+A service worker is a JavaScript file that runs in the background, separate from the page. It intercepts network requests and can cache responses, enabling offline functionality. The browser registers it once via `navigator.serviceWorker.register('/sw.js')`, and from then on it runs even when the page isn't open. A service worker is required (alongside the manifest) for a site to be considered a full PWA.
+
+**Why we used it:** To make Cadence work offline — the service worker caches the app shell so the Today view renders even without a network connection. Also, Chrome and Safari require an active service worker before showing the "Add to Home Screen" prompt.
+
+**Where:** `public/sw.js` — generated automatically during `next build` by `@ducanh2912/next-pwa`. Registered by injected script in the built output.
+
+---
+
+### `@ducanh2912/next-pwa`
+This is a Next.js plugin that automates service worker generation. You wrap the Next.js config with `withPWA({ dest: "public", disable: process.env.NODE_ENV === "development" })` and it generates a `sw.js` + `workbox-*.js` in `public/` every time you run `next build`. In development it's disabled (so you don't accidentally see a cached stale page while coding).
+
+**Why we used it:** Writing a service worker from scratch that handles caching strategies, cache versioning, and update logic is complex. This plugin uses Workbox (Google's service worker library) under the hood and generates all that boilerplate automatically from your Next.js page routes.
+
+**Where:** `next.config.ts` — `export default withPWA({...})(baseConfig)`. The generated `public/sw.js` is gitignored since Vercel rebuilds it on each deploy.
+
+---
+
+### Turbopack vs webpack — why `--webpack` was needed
+Next.js 16 made Turbopack the default bundler for BOTH dev server and production builds (previously it was only for dev). Turbopack is faster, but it doesn't support webpack plugins. `next-pwa` works by adding a webpack plugin to inject the service worker, which breaks when Turbopack runs the build.
+
+The fix is `"build": "next build --webpack"` in `package.json`. The `--webpack` flag forces the production build to use webpack, making the PWA plugin work. The dev server still uses Turbopack (fast HMR), but since `disable: true` in development, the service worker plugin never runs in dev anyway.
+
+**Why we care:** This is a breaking change in Next.js 16 that silently affected any existing `next-pwa` setup. The error message `"webpack config with no turbopack config"` is what revealed it.
+
+**Where:** `package.json` — `"build": "next build --webpack"`.
+
+---
+
+### Next.js Metadata API: `manifest` and `viewport.themeColor`
+Next.js App Router has a typed `Metadata` object you export from `layout.tsx` to set `<head>` tags without writing raw HTML. `metadata.manifest = "/manifest.json"` outputs `<link rel="manifest" href="/manifest.json">`. Theme color is handled separately via a `Viewport` export: `export const viewport: Viewport = { themeColor: "#815BEB" }` outputs `<meta name="theme-color" content="#815BEB">`. Next.js split these into two exports (metadata vs viewport) because viewport/theme-color are visual hints to the browser, not SEO metadata.
+
+**Why we used it:** Clean, typed way to add PWA head tags in App Router — no raw `<head>` JSX needed.
+
+**Where:** `app/layout.tsx` — `export const metadata: Metadata = { manifest: "/manifest.json" }` and `export const viewport: Viewport = { themeColor: "#815BEB" }`.
+
+---
+
+### Generating binary PNG files with Node.js built-ins
+PNG is a binary format with a specific structure: an 8-byte magic signature, then "chunks" (length + type + data + CRC32 checksum), with an IHDR chunk (image dimensions), an IDAT chunk (zlib-compressed pixel rows), and IEND. You can generate valid PNGs without any npm packages using Node's built-in `zlib.deflateSync()` for compression and a hand-rolled CRC32 function (a standard lookup-table algorithm). Each pixel row starts with a "filter byte" (0 = no filter), then RGB bytes for each pixel.
+
+**Why we used it:** Needed static 192×192 and 512×512 PNG icons for the PWA manifest. Rather than installing an image library (sharp, canvas) just for a one-time icon, a ~60-line Node.js script using only built-ins generates them. The anti-aliased C shape is computed by super-sampling each pixel (4×4 subpixels) and blending purple→white based on how much of the subpixel grid falls inside the arc.
+
+**Where:** `scripts/generate-icons.mjs` — run once with `node scripts/generate-icons.mjs` to write `public/icon-192.png` and `public/icon-512.png`.

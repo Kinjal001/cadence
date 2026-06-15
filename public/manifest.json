@@ -1,0 +1,13 @@
+{
+  "name": "Cadence",
+  "short_name": "Cadence",
+  "description": "keep the rhythm",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F3FF",
+  "theme_color": "#815BEB",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -168,16 +168,15 @@ create table tasks (
 
 ---
 
-### Slice 5: PWA Setup — Installable and Offline-Friendly
+### Slice 5: PWA Setup — Installable and Offline-Friendly — 🔄 In Progress
 
 **Goal:** Make Cadence installable to the home screen on mobile and desktop, with a cached shell so the Today view loads instantly even without a network connection.
 
-- [ ] `public/manifest.json` with name, short name, icons, theme color (`oklch`-based hex fallback), display: `standalone`
-- [ ] App icons: at minimum 192×192 and 512×512 PNG (can use a simple wordmark for v1)
-- [ ] Wire up the manifest in `layout.tsx` via `<link rel="manifest">`
-- [ ] Service worker via `next-pwa` package (or manual registration in `layout.tsx`)
+- [x] `public/manifest.json` with name, short name, icons, theme color, display: `standalone`
+- [x] App icons: 192×192 and 512×512 PNG — purple square with white C, generated via Node.js script (`scripts/generate-icons.mjs`)
+- [x] Wire up the manifest via Next.js Metadata API (`metadata.manifest` in `layout.tsx`) — outputs `<link rel="manifest">` automatically
+- [x] Service worker via `@ducanh2912/next-pwa` package (maintained fork of `next-pwa`); build uses `--webpack` flag since Next.js 16 defaults to Turbopack which conflicts with webpack-based PWA injection
 - [ ] Offline fallback page at `/offline` — friendly message + cached ring logo
-- [ ] Cache the Today view shell so it renders while Supabase data loads
 - [ ] Verify "Add to Home Screen" prompt appears on Chrome/Safari mobile
 
 **Data model additions:** none
