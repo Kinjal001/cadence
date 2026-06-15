@@ -630,6 +630,52 @@ Two approaches to fit a wide grid on mobile: (1) `overflow-x-auto` lets the user
 
 ---
 
+### `useRef` + `scrollLeft` for programmatic scroll
+
+`useRef<HTMLDivElement>(null)` creates a React "ref" — a box that holds a reference to a real DOM element. You attach it with `ref={myRef}` on a JSX element, and then `myRef.current` gives you the actual HTML element. From there you can read `.clientWidth`, `.offsetLeft`, set `.scrollLeft`, or call any DOM method.
+
+`scrollLeft` is a DOM property: setting it on a scrollable container immediately moves it to that horizontal scroll position. To center an element inside a scrollable row: `container.scrollLeft = element.offsetLeft - container.clientWidth / 2 + element.offsetWidth / 2`.
+
+**Why we used it:** The date strip is a 45-cell horizontally scrollable row. On load we want today's cell to be centered, not stuck at the left edge. `useRef` gives direct access to the container so we can compute and set `scrollLeft` without querying the DOM with `document.querySelector`.
+
+**Where:** `app/page.tsx` — `stripRef`, the `useEffect(() => {...}, [loading])` that runs after data loads.
+
+---
+
+### `requestAnimationFrame` for post-render DOM measurements
+
+After React updates the state and re-renders, the browser hasn't necessarily painted the new DOM yet. If you try to read `.offsetLeft` immediately inside a `useEffect`, the elements may not have their final positions. Wrapping in `requestAnimationFrame(() => {...})` defers your code until the next paint cycle, guaranteeing the layout is complete.
+
+**Why we used it:** When computing `scrollLeft` to center today in the date strip, `el.offsetLeft` would return 0 or wrong values without the `requestAnimationFrame` wrapper, because the strip buttons hadn't been laid out yet at the moment the effect ran.
+
+**Where:** `app/page.tsx` — inside the `useEffect` that auto-scrolls the strip after `loading` becomes false.
+
+---
+
+### `data-*` attributes for DOM querying in React
+
+HTML `data-*` attributes (e.g. `data-today="true"`) store custom information directly on DOM elements. In React, you pass them as props: `<button data-today={isThisToday ? "true" : undefined}>`. React omits the attribute entirely if the value is `undefined`. You can then find the element with `container.querySelector("[data-today]")` — this returns the first element that has the attribute, regardless of its value.
+
+**Why we used it:** Among 45 date strip buttons, we need to find the "today" one to scroll it into view. Using a `data-today` attribute is simpler than keeping a separate ref for the today button, and it clearly communicates intent in the markup.
+
+**Where:** `app/page.tsx` — `data-today={isThisToday ? "true" : undefined}` on date strip buttons; `querySelector("[data-today]")` in the scroll effect.
+
+---
+
+### Building a calendar grid in JSX (no library)
+
+A month calendar grid is just a 7-column CSS grid of day cells, with empty cells padding the start to align day 1 to the correct column. The algorithm:
+1. Get the weekday of the 1st of the month: `new Date(year, month, 1).getDay()` (0=Sun)
+2. Convert to Monday-first index: `(firstDow + 6) % 7` (0=Mon, 6=Sun)
+3. Fill that many `null` entries as padding, then push one date string per day of the month
+4. Render with `grid-cols-7`, mapping nulls to empty `<div />`s and date strings to `<button>`s
+
+**Why we used it:** A full calendar picker for jumping to any date is useful but doesn't need a third-party library for such a simple use case — the grid logic is ~10 lines. Keeping it in JSX means fewer dependencies and full styling control.
+
+**Where:** `app/page.tsx` — `buildCalendarCells()` function; the calendar picker dropdown inside the date strip section.
+
+---
+
 ## Slice 5: PWA Setup
 
 ### Web App Manifest

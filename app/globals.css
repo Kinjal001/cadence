@@ -76,6 +76,13 @@ body {
 .accent-pink    { --accent: oklch(0.68 0.16 350);  --accent-empty: oklch(0.94 0.04 350); --accent-shadow: oklch(0.68 0.16 350 / 0.35); }
 .accent-cyan    { --accent: oklch(0.62 0.14 200);  --accent-empty: oklch(0.93 0.04 200); --accent-shadow: oklch(0.62 0.14 200 / 0.35); }
 
+/* Hide scrollbar while keeping scroll functionality */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 /* Soft lavender-tinted card shadow — lifts white cards off the #F4F3FF background */
 @utility card-lift {
   box-shadow: 0 1px 3px 0 oklch(0.55 0.08 293 / 0.07), 0 1px 2px -1px oklch(0.55 0.08 293 / 0.06);

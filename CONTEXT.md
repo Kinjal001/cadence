@@ -125,17 +125,14 @@ scripts/
 ```
 
 **Today screen (`/`) — Supabase-backed:**
-- Large greeting (time-aware: morning/afternoon/evening) + today's full date in monospace
-- **Date navigation bar** — ← Jun 14 | Today, Jun 15 | Jun 16 → ; navigates check-in state for any past date without re-fetching (all logs held in memory); forward arrow disabled at today
-- **Daily motivational quote card** — 20 stoic/growth quotes, rotated by day-of-year (same quote all day, new tomorrow); warm left-border blockquote style; only shown on today's view
-- Mobile rhythm ring card (md:hidden) — compact completion ring + doneCount/totalDailies
-- Mobile K avatar button with Settings/Log out dropdown (click-outside overlay)
-- Dailies grid: toggle done/not-done for selected date, 7-day dot row, streak counter; completed items sort to bottom
-  - "+ Add daily" inline form: Name (required) + Description (optional)
-- Streak insight card — violet gradient, top streak + days to next milestone
-- "Up next" task list (today view) — checkboxes, category·deadline meta, completed items sort to bottom
-  - "+ Add task" inline form: title, category, deadline, priority selector (high/medium/low)
-- Past-date right panel — read-only "Tasks · Jun 14" section showing tasks with deadline on that date
+- Large greeting (time-aware: morning/afternoon/evening) + today's full date in monospace; K avatar button (mobile) with account dropdown
+- **Daily motivational quote card** — 20 stoic/growth quotes, rotated by day-of-year; warm left-border blockquote style; appears between greeting and date strip; shown on today's view only
+- **Scrollable date strip** — horizontal scroll, past 30 days + next 14 days (45 cells total); today highlighted with filled `--btn-primary` pill; selected non-today date gets filled pill; auto-scrolls to center today on load; future dates allowed
+  - **Month/year label** above strip (e.g. "June 2026") — clicking opens an inline calendar picker (full month grid, no library, Mon-first, prev/next month nav); clicking any date in picker selects it and closes picker; "Today" jump button appears when not on today
+- **Equal 50/50 two-column layout** (desktop): Left = Dailies section, Right = Tasks section; stacks vertically on mobile (dailies first, then tasks)
+- Dailies (left column): toggle done/not-done for selected date, 7-day dot row, streak counter; completed items sort to bottom; "+ Add daily" inline form
+- Tasks (right column): today view shows all tasks + "+ Add task" form with priority/category/deadline; past/future dates show tasks with `deadline === viewDate` (read-only)
+- **Streak insight card** — mobile only (`md:hidden`), full width, at the bottom of the page below tasks; hidden on desktop (it lives on the Insights page)
 - Sidebar: logo, nav (Today active), rhythm progress ring, account menu
 - Mobile: bottom nav, sidebar hidden
 

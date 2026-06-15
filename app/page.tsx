@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
@@ -130,9 +130,27 @@ function getInsight(dailies: Daily[]) {
   return { top, nextMilestone, daysToGo, barPct };
 }
 
-/* ─── Constants ──────────────────────────────────────────────────────────────── */
+/* ─── Date strip helpers ─────────────────────────────────────────────────────── */
 
-const CIRC = 2 * Math.PI * 34;
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]; // index = getDay() (0=Sun)
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function buildCalendarCells(year: number, month: number): (string | null)[] {
+  const firstDow = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const startPad = (firstDow + 6) % 7; // shift to Monday-first grid
+  const cells: (string | null)[] = Array(startPad).fill(null);
+  for (let d = 1; d <= totalDays; d++) {
+    cells.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  return cells;
+}
+
+/* ─── Constants ──────────────────────────────────────────────────────────────── */
 
 const BottomNavItems = [
   {
@@ -156,29 +174,43 @@ const BottomNavItems = [
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function TodayPage() {
-  const [dailiesMeta, setDailiesMeta]   = useState<DailyMeta[]>([]);
-  const [logsByDaily, setLogsByDaily]   = useState<Record<string, Set<string>>>({});
-  const [tasks,       setTasks]         = useState<Task[]>([]);
-  const [loading,     setLoading]       = useState(true);
-  const [loadError,   setLoadError]     = useState<string | null>(null);
-  const [viewDate,    setViewDate]      = useState<string>(() => localDate(0));
-  const [addingDaily,    setAddingDaily]    = useState(false);
-  const [newDailyName,   setNewDailyName]   = useState("");
-  const [newDailyDesc,   setNewDailyDesc]   = useState("");
-  const [addingTask,     setAddingTask]     = useState(false);
-  const [newTaskLabel,   setNewTaskLabel]   = useState("");
-  const [newTaskCategory,setNewTaskCategory]= useState("");
-  const [newTaskDeadline,setNewTaskDeadline]= useState("");
-  const [newTaskPriority,setNewTaskPriority]= useState<Priority>("medium");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dailiesMeta, setDailiesMeta]    = useState<DailyMeta[]>([]);
+  const [logsByDaily, setLogsByDaily]    = useState<Record<string, Set<string>>>({});
+  const [tasks,       setTasks]          = useState<Task[]>([]);
+  const [loading,     setLoading]        = useState(true);
+  const [loadError,   setLoadError]      = useState<string | null>(null);
+  const [viewDate,    setViewDate]       = useState<string>(() => localDate(0));
+  const [addingDaily,     setAddingDaily]     = useState(false);
+  const [newDailyName,    setNewDailyName]    = useState("");
+  const [newDailyDesc,    setNewDailyDesc]    = useState("");
+  const [addingTask,      setAddingTask]      = useState(false);
+  const [newTaskLabel,    setNewTaskLabel]    = useState("");
+  const [newTaskCategory, setNewTaskCategory] = useState("");
+  const [newTaskDeadline, setNewTaskDeadline] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
+  const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
+  const [calendarOpen,    setCalendarOpen]    = useState(false);
+  const [calYear,         setCalYear]         = useState(() => new Date().getFullYear());
+  const [calMonth,        setCalMonth]        = useState(() => new Date().getMonth());
 
-  const todayStr     = localDate(0);
-  const isToday      = viewDate === todayStr;
-  const prevDate     = addDays(viewDate, -1);
-  const nextDate     = addDays(viewDate, 1);
-  const canGoForward = viewDate < todayStr;
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  const todayStr = localDate(0);
+  const isToday  = viewDate === todayStr;
 
   useEffect(() => { loadData(); }, []);
+
+  // After data loads, scroll the date strip so today is centered
+  useEffect(() => {
+    if (loading) return;
+    requestAnimationFrame(() => {
+      const el = stripRef.current?.querySelector("[data-today]") as HTMLElement | null;
+      if (el && stripRef.current) {
+        const cw = stripRef.current.clientWidth;
+        stripRef.current.scrollLeft = el.offsetLeft - cw / 2 + el.offsetWidth / 2;
+      }
+    });
+  }, [loading]);
 
   async function loadData() {
     setLoading(true);
@@ -190,7 +222,7 @@ export default function TodayPage() {
         { data: tasksData,   error: e3 },
       ] = await Promise.all([
         db().from("dailies").select("*").order("created_at", { ascending: true }),
-        db().from("daily_logs").select("daily_id, date"),          // all history, no date cap
+        db().from("daily_logs").select("daily_id, date"),
         db().from("tasks").select("*").order("created_at", { ascending: true }),
       ]);
 
@@ -310,21 +342,41 @@ export default function TodayPage() {
     cancelTask();
   };
 
+  const openCalendar = () => {
+    const d = new Date(viewDate + "T00:00:00");
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
+    setCalendarOpen((o) => !o);
+  };
+
+  const prevCalMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); }
+    else setCalMonth((m) => m - 1);
+  };
+
+  const nextCalMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); }
+    else setCalMonth((m) => m + 1);
+  };
+
   /* ── Derived values ── */
 
-  const doneCount      = dailies.filter((d) => d.doneOnDate).length;
-  const totalDailies   = dailies.length;
-  const tasksLeft      = tasks.filter((t) => !t.done).length;
+  const doneCount     = dailies.filter((d) => d.doneOnDate).length;
+  const totalDailies  = dailies.length;
+  const tasksLeft     = tasks.filter((t) => !t.done).length;
   const { top, nextMilestone, daysToGo, barPct } = getInsight(dailies);
-  const greeting       = getGreeting("Kinjal");
-  const todayFullStr   = getTodayFullStr();
-  const topStreak      = dailies.length > 0 ? Math.max(...dailies.map((d) => d.streak)) : 0;
-  const completionPct  = totalDailies > 0 ? Math.round((doneCount / totalDailies) * 100) : 0;
-  const dashOffset     = totalDailies > 0 ? CIRC * (1 - doneCount / totalDailies) : CIRC;
-  const sortedDailies  = [...dailies].sort((a, b) => Number(a.doneOnDate) - Number(b.doneOnDate));
-  const sortedTasks    = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
-  const pastDateTasks  = tasks.filter((t) => t.deadline === viewDate);
-  const quote          = getDailyQuote(todayStr);
+  const greeting      = getGreeting("Kinjal");
+  const todayFullStr  = getTodayFullStr();
+  const topStreak     = dailies.length > 0 ? Math.max(...dailies.map((d) => d.streak)) : 0;
+  const sortedDailies = [...dailies].sort((a, b) => Number(a.doneOnDate) - Number(b.doneOnDate));
+  const sortedTasks   = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+  const pastDateTasks = tasks.filter((t) => t.deadline === viewDate);
+  const quote         = getDailyQuote(todayStr);
+
+  // 45-cell strip: 30 past + today + 14 future
+  const dateRange     = Array.from({ length: 45 }, (_, i) => addDays(todayStr, i - 30));
+  const viewMonthLabel = new Date(viewDate + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const calCells      = buildCalendarCells(calYear, calMonth);
 
   /* ── Loading / Error ── */
 
@@ -360,7 +412,7 @@ export default function TodayPage() {
   return (
     <div className="flex h-full overflow-hidden bg-[#F4F3FF] text-[var(--text-primary)] antialiased">
 
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
       <div className="hidden md:flex">
         <Sidebar doneCount={doneCount} totalDailies={totalDailies} activeNav="today" />
       </div>
@@ -368,7 +420,7 @@ export default function TodayPage() {
       <main className="flex-1 overflow-y-auto bg-[#F4F3FF] px-6 py-8 pb-28 md:px-[52px] md:py-[44px] md:pb-[64px]">
 
         {/* ── Greeting header ── */}
-        <header className="mb-6 md:mb-7">
+        <header className="mb-5 md:mb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="font-heading font-bold text-[28px] md:text-[34px] leading-[1.12] tracking-[-0.04em] text-[oklch(0.28_0.04_264)] m-0">
@@ -424,60 +476,10 @@ export default function TodayPage() {
           </div>
         </header>
 
-        {/* ── Date navigation bar ── */}
-        <div className="flex items-center bg-white border border-[var(--border)] rounded-[14px] mb-5 card-lift overflow-hidden">
-          {/* Prev arrow */}
-          <button
-            onClick={() => setViewDate(prevDate)}
-            className="flex items-center justify-center w-12 h-12 flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--btn-primary)] hover:bg-[var(--violet-active)] transition-colors border-none bg-transparent cursor-pointer"
-            aria-label="Previous day"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="10 4 6 8 10 12" />
-            </svg>
-          </button>
-
-          {/* Date labels */}
-          <div className="flex-1 flex items-center justify-center gap-3 py-3 min-w-0">
-            {/* Prev date — hidden on very small screens */}
-            <span className="hidden sm:block font-mono text-[11px] text-[var(--text-subtle)] flex-shrink-0">
-              {fmtNavDate(prevDate)}
-            </span>
-            <span className="hidden sm:block text-[var(--border-strong)] select-none">|</span>
-
-            {/* Current date — always visible, emphasized */}
-            <span className="font-mono font-semibold text-[13px] text-[var(--text-primary)] flex-shrink-0">
-              {isToday ? `Today, ${fmtNavDate(viewDate)}` : fmtNavDate(viewDate)}
-            </span>
-
-            <span className="hidden sm:block text-[var(--border-strong)] select-none">|</span>
-            {/* Next date */}
-            <span className={`hidden sm:block font-mono text-[11px] flex-shrink-0 ${canGoForward ? "text-[var(--text-subtle)]" : "text-[var(--border-strong)]"}`}>
-              {canGoForward ? fmtNavDate(nextDate) : "—"}
-            </span>
-          </div>
-
-          {/* Next arrow */}
-          <button
-            onClick={() => { if (canGoForward) setViewDate(nextDate); }}
-            disabled={!canGoForward}
-            className={`flex items-center justify-center w-12 h-12 flex-shrink-0 transition-colors border-none bg-transparent ${
-              canGoForward
-                ? "text-[var(--text-secondary)] hover:text-[var(--btn-primary)] hover:bg-[var(--violet-active)] cursor-pointer"
-                : "text-[var(--border-strong)] cursor-default"
-            }`}
-            aria-label="Next day"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 4 10 8 6 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* ── Daily quote card (today only) ── */}
+        {/* ── Daily quote card — moved above date strip, today only ── */}
         {isToday && (
           <div
-            className="rounded-r-[12px] px-5 py-[15px] mb-6"
+            className="rounded-r-[12px] px-5 py-[15px] mb-5"
             style={{ borderLeft: "3px solid #815BEB", background: "oklch(0.965 0.016 293)" }}
           >
             <p className="text-[13.5px] md:text-[14px] leading-[1.72] italic text-[var(--text-primary)] m-0">
@@ -489,34 +491,127 @@ export default function TodayPage() {
           </div>
         )}
 
-        {/* ── Mobile rhythm ring ── */}
-        <div className="md:hidden flex items-center gap-3 bg-white border border-[var(--border)] rounded-[14px] px-4 py-3 mb-6 card-lift">
-          <div className="relative w-10 h-10 flex-shrink-0">
-            <svg width="40" height="40" viewBox="0 0 80 80" className="-rotate-90">
-              <circle cx="40" cy="40" r="34" fill="none" stroke="#E4E4EE" strokeWidth="10" />
-              <circle
-                cx="40" cy="40" r="34" fill="none" strokeWidth="10" strokeLinecap="round"
-                style={{
-                  stroke: "#815BEB",
-                  strokeDasharray: CIRC,
-                  strokeDashoffset: dashOffset,
-                  transition: "stroke-dashoffset 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] font-semibold text-[var(--text-primary)]">
-              {completionPct}%
+        {/* ── Date strip ── */}
+        <div className="mb-7">
+          {/* Row: month/year label (opens calendar) + "Today" jump button */}
+          <div className="flex items-center justify-between mb-[10px] px-[2px]">
+            <div className="relative">
+              <button
+                onClick={openCalendar}
+                className="flex items-center gap-[5px] font-mono font-semibold text-[12px] text-[var(--text-primary)] hover:text-[var(--btn-primary)] transition-colors bg-transparent border-none cursor-pointer p-0"
+              >
+                {viewMonthLabel}
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <polyline points="2 4 6 8 10 4" />
+                </svg>
+              </button>
+
+              {/* Calendar picker dropdown */}
+              {calendarOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setCalendarOpen(false)} />
+                  <div className="absolute top-[calc(100%+6px)] left-0 z-50 bg-white border border-[var(--border)] rounded-[16px] shadow-[0_16px_40px_-12px_rgba(28,28,46,0.18)] p-4 w-[256px]">
+
+                    {/* Month navigation */}
+                    <div className="flex items-center justify-between mb-3">
+                      <button
+                        onClick={prevCalMonth}
+                        className="w-7 h-7 flex items-center justify-center rounded-[8px] hover:bg-[#F4F4F8] text-[var(--text-secondary)] border-none bg-transparent cursor-pointer transition-colors"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <polyline points="8.5 2 4.5 6.5 8.5 11" />
+                        </svg>
+                      </button>
+                      <span className="font-mono font-semibold text-[12px] text-[var(--text-primary)]">
+                        {MONTH_NAMES[calMonth]} {calYear}
+                      </span>
+                      <button
+                        onClick={nextCalMonth}
+                        className="w-7 h-7 flex items-center justify-center rounded-[8px] hover:bg-[#F4F4F8] text-[var(--text-secondary)] border-none bg-transparent cursor-pointer transition-colors"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <polyline points="4.5 2 8.5 6.5 4.5 11" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Day-of-week headers: M T W T F S S */}
+                    <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
+                      {["M","T","W","T","F","S","S"].map((l, i) => (
+                        <div key={i} className="text-center font-mono text-[9.5px] text-[var(--text-subtle)] py-[3px]">{l}</div>
+                      ))}
+                    </div>
+
+                    {/* Day cells */}
+                    <div className="grid grid-cols-7 gap-[3px]">
+                      {calCells.map((dateStr, i) =>
+                        dateStr ? (
+                          <button
+                            key={i}
+                            onClick={() => { setViewDate(dateStr); setCalendarOpen(false); }}
+                            className={`h-8 w-full rounded-[8px] font-mono text-[11.5px] cursor-pointer border-none transition-colors ${
+                              dateStr === viewDate
+                                ? "bg-[var(--btn-primary)] text-white font-semibold"
+                                : dateStr === todayStr
+                                ? "bg-[var(--violet-active)] text-[var(--btn-primary)] font-semibold"
+                                : "text-[var(--text-primary)] hover:bg-[#F4F4F8] bg-transparent"
+                            }`}
+                          >
+                            {parseInt(dateStr.slice(-2))}
+                          </button>
+                        ) : (
+                          <div key={i} />
+                        )
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* "Today" jump button — only shown when not on today */}
+            {!isToday && (
+              <button
+                onClick={() => setViewDate(todayStr)}
+                className="font-mono text-[11.5px] font-medium text-[var(--btn-primary)] hover:text-[var(--violet-dark)] bg-transparent border-none cursor-pointer transition-colors"
+              >
+                Today
+              </button>
+            )}
           </div>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-              {isToday ? "Today's rhythm" : `${fmtNavDate(viewDate)} rhythm`}
-            </span>
-            <span className="font-mono text-[11px] text-[var(--text-subtle)]">{doneCount}/{totalDailies} dailies done</span>
+
+          {/* Horizontal scrollable date strip */}
+          <div
+            ref={stripRef}
+            className="flex gap-[5px] overflow-x-auto no-scrollbar pb-1 px-[2px]"
+          >
+            {dateRange.map((dateStr) => {
+              const isSelected  = dateStr === viewDate;
+              const isThisToday = dateStr === todayStr;
+              const dayLetter   = DAY_LETTERS[new Date(dateStr + "T00:00:00").getDay()];
+              const dayNum      = parseInt(dateStr.slice(-2));
+              return (
+                <button
+                  key={dateStr}
+                  data-today={isThisToday ? "true" : undefined}
+                  onClick={() => setViewDate(dateStr)}
+                  className={`flex flex-col items-center gap-[4px] w-[44px] py-[10px] rounded-[10px] flex-shrink-0 cursor-pointer border-none transition-colors ${
+                    isSelected
+                      ? "bg-[var(--btn-primary)] text-white"
+                      : isThisToday
+                      ? "bg-[var(--violet-active)] text-[var(--btn-primary)]"
+                      : "bg-transparent text-[var(--text-secondary)] hover:bg-white"
+                  }`}
+                >
+                  <span className="font-mono text-[9.5px] leading-none">{dayLetter}</span>
+                  <span className="font-mono font-semibold text-[15px] leading-none">{dayNum}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* ── Two-column body ── */}
+        {/* ── Two-column body — equal 50/50 split ── */}
         <div className="flex flex-col md:flex-row gap-7 md:gap-[28px] items-start">
 
           {/* LEFT — Dailies */}
@@ -592,176 +687,168 @@ export default function TodayPage() {
             </div>
           </section>
 
-          {/* RIGHT — Insight + tasks panel */}
-          <div className="w-full md:w-[316px] md:flex-shrink-0 flex flex-col gap-6">
-
-            {/* Streak insight card */}
-            <div className="insight-card rounded-[16px] p-5 text-white flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] tracking-[0.12em] uppercase opacity-75">
-                  Streak insight
-                </span>
-                <span className="flex items-center gap-[5px] font-mono font-semibold text-[13px]">
-                  {top.streak}
-                  <span className="text-[15px]">🔥</span>
-                </span>
-              </div>
-              <div>
-                <div className="font-heading font-bold text-[20px] tracking-[-0.02em] leading-[1.2]">
-                  {daysToGo === 1 ? "1 day" : `${daysToGo} days`} to a {nextMilestone}-day streak
-                </div>
-                <div className="text-[13px] leading-[1.55] opacity-85 mt-[8px]">
-                  Keep <span className="font-bold">{top.name}</span> going for your longest run yet.
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between font-mono text-[10.5px] opacity-80 mb-[7px]">
-                  <span>{top.streak} days</span>
-                  <span>{nextMilestone} days</span>
-                </div>
-                <div className="h-[5px] rounded-full bg-white/25 overflow-hidden">
-                  <div className="h-full rounded-full bg-white transition-[width] duration-500 ease-out" style={{ width: `${barPct}%` }} />
-                </div>
-              </div>
+          {/* RIGHT — Tasks */}
+          <section className="flex-1 min-w-0 w-full">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="font-heading font-semibold text-[16px] tracking-[-0.015em] text-[oklch(0.36_0.04_264)] m-0">
+                Tasks
+                {!isToday && (
+                  <span className="ml-2 font-mono font-normal text-[11px] text-[var(--text-subtle)] tracking-[0.01em]">
+                    · {fmtNavDate(viewDate)}
+                  </span>
+                )}
+              </h2>
+              <span className="font-mono text-[11.5px] text-[var(--text-subtle)]">
+                {isToday ? `${tasksLeft} pending` : `${pastDateTasks.length} tasks`}
+              </span>
             </div>
 
-            {/* Tasks panel — "Up next" on today, read-only past tasks otherwise */}
             {isToday ? (
-              <section>
-                <div className="flex items-baseline justify-between mb-4">
-                  <h2 className="font-heading font-semibold text-[16px] tracking-[-0.015em] text-[oklch(0.36_0.04_264)] m-0">
-                    Up next
-                  </h2>
-                  <span className="font-mono text-[11.5px] text-[var(--text-subtle)]">
-                    {tasksLeft} pending
-                  </span>
-                </div>
+              /* Today — all tasks + add form */
+              <div className="flex flex-col gap-2">
+                {tasks.length === 0 && !addingTask && (
+                  <p className="text-[13px] text-[var(--text-subtle)] mb-2">No tasks yet — add one below.</p>
+                )}
 
+                {sortedTasks.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 px-[13px] py-[11px] bg-white border border-[var(--border)] rounded-[12px] card-lift">
+                    <div className="flex flex-col gap-[3px] min-w-0 flex-1">
+                      <span className={`text-[13.5px] font-medium transition-colors ${t.done ? "text-[oklch(0.72_0.012_264)] line-through" : "text-[oklch(0.32_0.03_264)]"}`}>
+                        {t.label}
+                      </span>
+                      {t.meta && (
+                        <span className="font-mono text-[10px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">{t.meta}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => toggleTask(t.id)}
+                      className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold cursor-pointer transition-all duration-150 border-2 ${t.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"}`}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add task */}
+                {addingTask ? (
+                  <div className="bg-white border border-[var(--border)] rounded-[12px] p-4 flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
+                      <input
+                        autoFocus type="text" value={newTaskLabel}
+                        onChange={(e) => setNewTaskLabel(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
+                        placeholder="Task name (required)"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      />
+                      <input
+                        type="text" value={newTaskCategory}
+                        onChange={(e) => setNewTaskCategory(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
+                        placeholder="Category — optional"
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                      />
+                      <input
+                        type="date" value={newTaskDeadline}
+                        onChange={(e) => setNewTaskDeadline(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
+                        className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
+                      />
+                      <div className="flex gap-[6px] pt-[2px]">
+                        {(["high", "medium", "low"] as Priority[]).map((p) => {
+                          const sel = newTaskPriority === p;
+                          const selStyle: Record<Priority, React.CSSProperties> = {
+                            high:   { background: "oklch(0.96 0.04 25)",  color: "oklch(0.50 0.18 25)",  borderColor: "oklch(0.82 0.10 25)"  },
+                            medium: { background: "oklch(0.97 0.04 76)",  color: "oklch(0.50 0.13 76)",  borderColor: "oklch(0.84 0.09 76)"  },
+                            low:    { background: "#F4F4F8",               color: "var(--text-secondary)", borderColor: "var(--border-soft)"   },
+                          };
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => setNewTaskPriority(p)}
+                              className={`flex-1 py-[6px] text-[12px] rounded-[8px] cursor-pointer border transition-all flex items-center justify-center gap-[5px] ${sel ? "font-semibold" : "font-medium bg-transparent border-[var(--border)] text-[var(--text-subtle)]"}`}
+                              style={sel ? selStyle[p] : {}}
+                            >
+                              <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: PRIORITY_COLOR[p] }} />
+                              {p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={cancelTask} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
+                      <button onClick={addTask} disabled={!newTaskLabel.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[9px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add task</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingTask(true)}
+                    className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-subtle)] hover:text-[var(--violet)] transition-colors bg-transparent border-none cursor-pointer mt-1"
+                  >
+                    <span className="text-[18px] leading-none">+</span> Add task
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Past/future date — tasks due on this date, read-only */
+              pastDateTasks.length === 0 ? (
+                <p className="text-[13px] text-[var(--text-subtle)] leading-[1.6]">
+                  No tasks due on this date.
+                </p>
+              ) : (
                 <div className="flex flex-col gap-2">
-                  {tasks.length === 0 && !addingTask && (
-                    <p className="text-[13px] text-[var(--text-subtle)] mb-2">No tasks yet — add one below.</p>
-                  )}
-
-                  {sortedTasks.map((t) => (
+                  {pastDateTasks.map((t) => (
                     <div key={t.id} className="flex items-center gap-3 px-[13px] py-[11px] bg-white border border-[var(--border)] rounded-[12px] card-lift">
                       <div className="flex flex-col gap-[3px] min-w-0 flex-1">
-                        <span className={`text-[13.5px] font-medium transition-colors ${t.done ? "text-[oklch(0.72_0.012_264)] line-through" : "text-[oklch(0.32_0.03_264)]"}`}>
+                        <span className={`text-[13.5px] font-medium ${t.done ? "text-[oklch(0.72_0.012_264)] line-through" : "text-[oklch(0.32_0.03_264)]"}`}>
                           {t.label}
                         </span>
                         {t.meta && (
                           <span className="font-mono text-[10px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">{t.meta}</span>
                         )}
                       </div>
-                      <button
-                        onClick={() => toggleTask(t.id)}
-                        className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold cursor-pointer transition-all duration-150 border-2 ${t.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"}`}
-                      >
+                      <div className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold border-2 ${t.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"}`}>
                         ✓
-                      </button>
+                      </div>
                     </div>
                   ))}
-
-                  {/* Add task */}
-                  {addingTask ? (
-                    <div className="bg-white border border-[var(--border)] rounded-[12px] p-4 flex flex-col gap-3">
-                      <div className="flex flex-col gap-2">
-                        <input
-                          autoFocus type="text" value={newTaskLabel}
-                          onChange={(e) => setNewTaskLabel(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
-                          placeholder="Task name (required)"
-                          className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
-                        />
-                        <input
-                          type="text" value={newTaskCategory}
-                          onChange={(e) => setNewTaskCategory(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
-                          placeholder="Category — optional"
-                          className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
-                        />
-                        <input
-                          type="date" value={newTaskDeadline}
-                          onChange={(e) => setNewTaskDeadline(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
-                          className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
-                        />
-                        <div className="flex gap-[6px] pt-[2px]">
-                          {(["high", "medium", "low"] as Priority[]).map((p) => {
-                            const sel = newTaskPriority === p;
-                            const selStyle: Record<Priority, React.CSSProperties> = {
-                              high:   { background: "oklch(0.96 0.04 25)",  color: "oklch(0.50 0.18 25)",  borderColor: "oklch(0.82 0.10 25)"  },
-                              medium: { background: "oklch(0.97 0.04 76)",  color: "oklch(0.50 0.13 76)",  borderColor: "oklch(0.84 0.09 76)"  },
-                              low:    { background: "#F4F4F8",               color: "var(--text-secondary)", borderColor: "var(--border-soft)"   },
-                            };
-                            return (
-                              <button
-                                key={p}
-                                onClick={() => setNewTaskPriority(p)}
-                                className={`flex-1 py-[6px] text-[12px] rounded-[8px] cursor-pointer border transition-all flex items-center justify-center gap-[5px] ${sel ? "font-semibold" : "font-medium bg-transparent border-[var(--border)] text-[var(--text-subtle)]"}`}
-                                style={sel ? selStyle[p] : {}}
-                              >
-                                <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: PRIORITY_COLOR[p] }} />
-                                {p.charAt(0).toUpperCase() + p.slice(1)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <button onClick={cancelTask} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>
-                        <button onClick={addTask} disabled={!newTaskLabel.trim()} className="px-3 py-[7px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[9px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add task</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setAddingTask(true)}
-                      className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-subtle)] hover:text-[var(--violet)] transition-colors bg-transparent border-none cursor-pointer mt-1"
-                    >
-                      <span className="text-[18px] leading-none">+</span> Add task
-                    </button>
-                  )}
                 </div>
-              </section>
-            ) : (
-              /* Past date — tasks due on this date */
-              <section>
-                <div className="flex items-baseline justify-between mb-4">
-                  <h2 className="font-heading font-semibold text-[16px] tracking-[-0.015em] text-[oklch(0.36_0.04_264)] m-0">
-                    Tasks
-                  </h2>
-                  <span className="font-mono text-[11.5px] text-[var(--text-subtle)]">
-                    {fmtNavDate(viewDate)}
-                  </span>
-                </div>
-
-                {pastDateTasks.length === 0 ? (
-                  <p className="text-[13px] text-[var(--text-subtle)] leading-[1.6]">
-                    No tasks were due on this date.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {pastDateTasks.map((t) => (
-                      <div key={t.id} className="flex items-center gap-3 px-[13px] py-[11px] bg-white border border-[var(--border)] rounded-[12px] card-lift">
-                        <div className="flex flex-col gap-[3px] min-w-0 flex-1">
-                          <span className={`text-[13.5px] font-medium ${t.done ? "text-[oklch(0.72_0.012_264)] line-through" : "text-[oklch(0.32_0.03_264)]"}`}>
-                            {t.label}
-                          </span>
-                          {t.meta && (
-                            <span className="font-mono text-[10px] tracking-[0.02em] text-[oklch(0.66_0.014_264)]">{t.meta}</span>
-                          )}
-                        </div>
-                        <div className={`w-[22px] h-[22px] flex-shrink-0 rounded-[7px] flex items-center justify-center text-[12px] font-bold border-2 ${t.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent"}`}>
-                          ✓
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
+              )
             )}
+          </section>
 
+        </div>
+
+        {/* ── Streak insight — mobile only, full width at bottom ── */}
+        <div className="md:hidden mt-7">
+          <div className="insight-card rounded-[16px] p-5 text-white flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] tracking-[0.12em] uppercase opacity-75">Streak insight</span>
+              <span className="flex items-center gap-[5px] font-mono font-semibold text-[13px]">
+                {top.streak}
+                <span className="text-[15px]">🔥</span>
+              </span>
+            </div>
+            <div>
+              <div className="font-heading font-bold text-[20px] tracking-[-0.02em] leading-[1.2]">
+                {daysToGo === 1 ? "1 day" : `${daysToGo} days`} to a {nextMilestone}-day streak
+              </div>
+              <div className="text-[13px] leading-[1.55] opacity-85 mt-[8px]">
+                Keep <span className="font-bold">{top.name}</span> going for your longest run yet.
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between font-mono text-[10.5px] opacity-80 mb-[7px]">
+                <span>{top.streak} days</span>
+                <span>{nextMilestone} days</span>
+              </div>
+              <div className="h-[5px] rounded-full bg-white/25 overflow-hidden">
+                <div className="h-full rounded-full bg-white transition-[width] duration-500 ease-out" style={{ width: `${barPct}%` }} />
+              </div>
+            </div>
           </div>
         </div>
+
       </main>
 
       {/* Mobile bottom nav */}

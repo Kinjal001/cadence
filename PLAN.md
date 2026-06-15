@@ -197,6 +197,7 @@ create table tasks (
 - [x] Dark primary color consistency — logo bg, checkboxes, spinners, active nav all use `#815BEB`
 - [x] User avatar + streak block on mobile — K avatar button with account menu; Today's rhythm ring card on mobile Today screen
 - [x] Today page — date navigation bar (← Jun 14 | Today, Jun 15 | Jun 16 →), welcoming redesign (larger greeting, softer section headers, more whitespace), daily motivational quote card (20 rotating quotes seeded by day-of-year)
+- [x] Today page — scrollable date strip (past 30 + next 14 days, today highlighted with filled pill), clickable month/year label opens calendar picker, quote card moved above strip, equal 50/50 dailies+tasks layout, streak insight moved to mobile-only bottom panel, future dates now allowed
 - [ ] Tasks page — date navigation bar, overdue tasks bubble to top, tasks sorted by due date
 - [ ] Tags system — user-created tags for dailies + tasks; new `tags` and `daily_tags`/`task_tags` junction tables in Supabase
 - [ ] Today page — user avatar with account/settings menu on mobile (already live; wire up real settings page)
