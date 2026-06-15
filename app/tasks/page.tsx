@@ -290,6 +290,13 @@ export default function TasksPage() {
     a.done !== b.done ? (a.done ? 1 : -1) : PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
   );
 
+  // Completed tasks sorted most recent first (completedDate desc, fall back to created_at desc)
+  const completedSorted = [...allDone].sort((a, b) => {
+    const aD = a.completedDate ?? a.created_at;
+    const bD = b.completedDate ?? b.created_at;
+    return bD.localeCompare(aD);
+  });
+
   // Pending / Done tabs show ALL tasks regardless of date strip
   const pendingForTab = sortByDeadlineAsc(allPending);
 
@@ -427,7 +434,7 @@ export default function TasksPage() {
     }
 
     if (isToday) {
-      const empty = overdueTasks.length + dueOnDateTasks.length + noDateTasks.length + allDone.length === 0;
+      const empty = overdueTasks.length + dueOnDateTasks.length + noDateTasks.length + upcomingTasks.length + completedSorted.length === 0;
       if (empty) return <EmptyState onAdd={openAddForm} />;
       return (
         <div className="flex flex-col gap-5">
@@ -449,10 +456,22 @@ export default function TasksPage() {
               <div className="flex flex-col gap-2">{noDateTasks.map(renderCard)}</div>
             </div>
           )}
-          {allDone.length > 0 && (
+          {upcomingTasks.length > 0 && (
             <div>
-              {renderSectionLabel("Completed", allDone.length)}
-              <div className="flex flex-col gap-2">{allDone.map(renderCard)}</div>
+              {renderSectionLabel("Upcoming · 7 Days", upcomingTasks.length, {
+                collapsible: true,
+                expanded: upcomingExpanded,
+                onToggle: () => setUpcomingExpanded((v) => !v),
+              })}
+              {upcomingExpanded && (
+                <div className="flex flex-col gap-2">{upcomingTasks.map(renderCard)}</div>
+              )}
+            </div>
+          )}
+          {completedSorted.length > 0 && (
+            <div>
+              {renderSectionLabel("Completed", completedSorted.length)}
+              <div className="flex flex-col gap-2">{completedSorted.map(renderCard)}</div>
             </div>
           )}
         </div>
