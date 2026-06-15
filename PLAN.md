@@ -168,7 +168,7 @@ create table tasks (
 
 ---
 
-### Slice 5: PWA Setup — Installable and Offline-Friendly — 🔄 In Progress
+### Slice 5: PWA Setup — Installable and Offline-Friendly — ✅ Complete (2026-06-15)
 
 **Goal:** Make Cadence installable to the home screen on mobile and desktop, with a cached shell so the Today view loads instantly even without a network connection.
 
@@ -176,12 +176,50 @@ create table tasks (
 - [x] App icons: 192×192 and 512×512 PNG — purple square with white C, generated via Node.js script (`scripts/generate-icons.mjs`)
 - [x] Wire up the manifest via Next.js Metadata API (`metadata.manifest` in `layout.tsx`) — outputs `<link rel="manifest">` automatically
 - [x] Service worker via `@ducanh2912/next-pwa` package (maintained fork of `next-pwa`); build uses `--webpack` flag since Next.js 16 defaults to Turbopack which conflicts with webpack-based PWA injection
-- [ ] Offline fallback page at `/offline` — friendly message + cached ring logo
-- [ ] Verify "Add to Home Screen" prompt appears on Chrome/Safari mobile
+- [x] Offline fallback page at `/offline` — friendly message + cached ring logo
+- [x] Verified "Add to Home Screen" on Chrome mobile — app installed and used daily by Kinjal
 
 **Data model additions:** none
 
 **Done when:** On your phone, you can install Cadence to the home screen, open it in airplane mode, and see the Today view shell render (with a loading state for the data) rather than a browser error page.
+
+---
+
+---
+
+### v1.5 — Polish & Fixes — 🔄 In Progress
+
+**Goal:** Mobile experience improvements, visual consistency, and quality-of-life features discovered during daily use. These are incremental improvements on top of the complete v1 feature set.
+
+- [x] Completed items sort to bottom — checked-off dailies and tasks sink to the bottom of their lists
+- [x] Insights responsive layout — mobile stacks all blocks full width; tablet/desktop two-column
+- [x] Heatmap mobile fix — auto-calculate weeks that fit screen width; "View full history" toggle
+- [x] Dark primary color consistency — logo bg, checkboxes, spinners, active nav all use `#815BEB`
+- [x] User avatar + streak block on mobile — K avatar button with account menu; Today's rhythm ring card on mobile Today screen
+- [x] Today page — date navigation bar (← Jun 14 | Today, Jun 15 | Jun 16 →), welcoming redesign (larger greeting, softer section headers, more whitespace), daily motivational quote card (20 rotating quotes seeded by day-of-year)
+- [ ] Tasks page — date navigation bar, overdue tasks bubble to top, tasks sorted by due date
+- [ ] Tags system — user-created tags for dailies + tasks; new `tags` and `daily_tags`/`task_tags` junction tables in Supabase
+- [ ] Today page — user avatar with account/settings menu on mobile (already live; wire up real settings page)
+
+**Data model additions (planned for Tags):**
+```sql
+create table tags (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null unique,
+  color      text not null,
+  created_at timestamptz default now()
+);
+create table daily_tags (
+  daily_id uuid references dailies(id) on delete cascade,
+  tag_id   uuid references tags(id) on delete cascade,
+  primary key (daily_id, tag_id)
+);
+create table task_tags (
+  task_id uuid references tasks(id) on delete cascade,
+  tag_id  uuid references tags(id) on delete cascade,
+  primary key (task_id, tag_id)
+);
+```
 
 ---
 

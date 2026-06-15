@@ -36,16 +36,16 @@ All tokens live in `app/globals.css` `:root`. Components never hardcode hex — 
 |---|---|---|
 | `--app-bg` | `#F4F3FF` | Page background — subtle lavender tint |
 | `--card-bg` | `#ffffff` | Cards and sidebar |
-| `--violet` | `#A78BFA` | Soft lavender — nav active bg accent, checkboxes (done), completion ring, daily check buttons |
+| `--violet` | `#A78BFA` | Soft lavender — nav active bg accent, hover text, focus borders |
 | `--violet-dark` | `#7C5CE8` | Button hover state |
-| `--violet-active` | `#EDE9FE` | Nav active background fill, subtle fills |
-| `--btn-primary` | `#815BEB` | Action button fills (+ Add task, Add daily, Add task, Retry) |
+| `--violet-active` | `#EDE9FE` | Nav active background fill, avatar bg, subtle fills |
+| `--btn-primary` | `#815BEB` | **Dark primary** — logo bg, action buttons, checkboxes (filled), spinners, active nav text, completion ring stroke |
 | `--text-primary` | `#1E1B3A` | Main body text — deep navy-purple |
 | `--text-secondary` | `#6B6889` | Dates, meta, subtitles |
 | `--border` | `#E5E3F3` | Card and input borders |
 | `--border-strong` | `#DDD9F5` | Sidebar right border |
 
-**Why two purples for buttons vs accent?** `#815BEB` is richer/darker so action buttons read as controls. `#A78BFA` is softer — used for state indicators (checked, active, ringing) where you want presence without weight.
+**Two-purple rule:** `--btn-primary` (`#815BEB`) is the "dark primary" — used everywhere a filled, interactive element needs visual weight: logo background, checkboxes when checked, loading spinners, active nav tab text, the completion ring stroke, all action buttons. `--violet` (`#A78BFA`) is the "soft accent" — used only for hover states, focus borders, and nav active background fills where you want a hint of color, not a strong statement.
 
 **Per-daily accent classes** (`.accent-violet`, `.accent-blue`, `.accent-emerald`, `.accent-amber`, `.accent-pink`, `.accent-cyan`) set `--accent`, `--accent-empty`, `--accent-shadow` on the card wrapper; children read via `bg-[var(--accent)]`.
 
@@ -89,8 +89,11 @@ This is distinct from a Task (one-off, has a deadline, category, and priority). 
 | 2 | Tasks (full CRUD route) | ✅ Complete (2026-06-15) |
 | 3 | Dailies management page | ✅ Complete (2026-06-15) |
 | 4 | Insights view | ✅ Complete (2026-06-15) |
-| 5 | PWA (installable, offline) | 🔄 In Progress |
+| 5 | PWA (installable, offline) | ✅ Complete (2026-06-15) |
+| v1.5 | Polish & Fixes | 🔄 In Progress |
 | 6 | Auth (multi-device) | ⬜ Not started |
+
+**Note:** App is installed as a PWA and being used daily by Kinjal. All v1 core features are shipped.
 
 ---
 
@@ -122,13 +125,18 @@ scripts/
 ```
 
 **Today screen (`/`) — Supabase-backed:**
-- Greeting + date header + top-streak badge
-- Dailies grid: toggle done/not-done, 7-day dot row, streak counter
+- Large greeting (time-aware: morning/afternoon/evening) + today's full date in monospace
+- **Date navigation bar** — ← Jun 14 | Today, Jun 15 | Jun 16 → ; navigates check-in state for any past date without re-fetching (all logs held in memory); forward arrow disabled at today
+- **Daily motivational quote card** — 20 stoic/growth quotes, rotated by day-of-year (same quote all day, new tomorrow); warm left-border blockquote style; only shown on today's view
+- Mobile rhythm ring card (md:hidden) — compact completion ring + doneCount/totalDailies
+- Mobile K avatar button with Settings/Log out dropdown (click-outside overlay)
+- Dailies grid: toggle done/not-done for selected date, 7-day dot row, streak counter; completed items sort to bottom
   - "+ Add daily" inline form: Name (required) + Description (optional)
 - Streak insight card — violet gradient, top streak + days to next milestone
-- "Up next" task list with checkboxes and meta (category · deadline)
+- "Up next" task list (today view) — checkboxes, category·deadline meta, completed items sort to bottom
   - "+ Add task" inline form: title, category, deadline, priority selector (high/medium/low)
-- Sidebar: logo, nav (Today active), rhythm progress ring, account menu stub
+- Past-date right panel — read-only "Tasks · Jun 14" section showing tasks with deadline on that date
+- Sidebar: logo, nav (Today active), rhythm progress ring, account menu
 - Mobile: bottom nav, sidebar hidden
 
 **Dailies page (`/dailies`) — Supabase-backed:**
@@ -143,11 +151,11 @@ scripts/
 
 **Insights page (`/insights`) — read-only, Supabase-backed:**
 - Header with total check-ins + daily habit count
-- Stats row (4 cards, always horizontal): each shows a large colored number — lavender for total check-ins, amber for best streak, emerald for perfect days, slate for active dailies
-- Two-column layout (50/50 on desktop, stacked on mobile):
-  - Left card — "This week" bar chart: 3-row structure (% labels / bars / day labels); today `#815BEB`, past `#C4B5FD`, future slots `#EDE9FE`; bars scale proportionally to daily completion %
-  - Right card — "Consistency · 30 days": each daily's own accent color fills its flex-width progress bar; % shown right-aligned and colored when ≥ 70%. Below a divider: "Streak leaderboard" — dailies ranked by current streak, showing rank, dot, name, 🔥 current, ⚡ best
-- 26-week heatmap (~6 months): 26 columns × 7 rows (Mon–Sun), 14×14px cells, 4-level purple palette (none/low/high/full), month labels above columns, day initials on left, legend below; `overflow-x-auto` on mobile
+- Stats row: 2×2 grid on mobile, 4-column on desktop — large colored numbers (lavender/amber/emerald/slate)
+- Two-column layout: full-width stacked on mobile (`md:items-start`, `w-full` on both columns); 50/50 side-by-side on desktop
+  - Left card — "This week" bar chart: today `#815BEB`, past `#C4B5FD`, future `#EDE9FE`
+  - Right card — "Consistency · 30 days" progress bars + "Streak leaderboard"
+- Heatmap: desktop shows full 26-week history; mobile auto-fits weeks to screen width and shows most recent N weeks; "View full history" toggle expands to all weeks since first check-in
 - Sidebar "Insights" nav item active; rhythm ring live
 
 **Tasks page (`/tasks`) — Supabase-backed:**
@@ -184,17 +192,22 @@ Note: `priority` column was added via `ALTER TABLE tasks ADD COLUMN priority tex
 
 ---
 
-## What's next — complete Slice 5 + Slice 6
+## What's next — v1.5 Polish (in progress)
 
-**Remaining Slice 5 (PWA):**
-- Offline fallback page at `/offline` — friendly message when there's no network
-- Test "Add to Home Screen" prompt on Chrome/Safari mobile (follow Android test steps: open Cadence in Chrome → three-dot menu → Install app)
+**Next up: Tasks page improvements**
+- Date navigation bar (same ← Today → pattern as Today page)
+- Overdue tasks bubble to top of pending list
+- Tasks sorted by due date within each section
 
-**Slice 6 (Auth):**
+**Then: Tags system**
+- User-created tags for both dailies and tasks
+- New `tags`, `daily_tags`, `task_tags` tables in Supabase
+- Tag chips on cards, filter by tag on Tasks page and Dailies page
+
+**After v1.5: Slice 6 (Auth)**
 - Supabase magic-link or Google OAuth sign-in at `/login`
-- Middleware to protect all routes
-- RLS policies on all tables
-- Replace hardcoded `user_id` with `auth.uid()`
+- Middleware to protect all routes; RLS policies on all tables
+- Replace hardcoded placeholder with `auth.uid()`
 
 ---
 

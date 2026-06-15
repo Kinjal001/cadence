@@ -588,6 +588,48 @@ In a progress-bar row with three elements (name · bar · percentage), the bar s
 
 ---
 
+## v1.5 — Polish & Fixes
+
+### CSS grid `auto-fill` + `minmax` for responsive card grids
+
+`grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr))` creates a grid that puts as many columns as will fit, each at least 232px wide, expanding to fill leftover space. `min(100%, 232px)` prevents any single column from overflowing its container on narrow screens (a phone can't fit 232px, so the column becomes 100% wide and stacks into one column automatically). No media queries needed.
+
+**Why we used it:** The dailies grid on the Today screen needs to show 2+ columns on desktop and 1 column on mobile, without a fixed breakpoint. `auto-fill` + `minmax` handles this automatically regardless of screen width.
+
+**Where:** `app/page.tsx` — the `style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 232px), 1fr))" }}` on the dailies grid `div`.
+
+---
+
+### Filtering Supabase rows by date — `.gte()` and no-filter fetches
+
+Supabase's `.gte("date", sinceDate)` filters rows where the `date` column is greater-than-or-equal-to a value. For the heatmap on Insights we initially fetched only the last 60 days (`.gte("date", localDate(60))`). When we added date navigation to the Today page, we removed the filter entirely (`db().from("daily_logs").select("daily_id, date")`) so ALL historical logs load on mount — enabling instant past-date navigation without a spinner per day change.
+
+**Why we used it:** For a personal app the log table won't have millions of rows, so loading everything once is cheaper than a round-trip on every date navigation. The tradeoff: if logs grew very large (thousands of entries), we'd want to re-add a date filter. Right now the unlimited fetch is the right call.
+
+**Where:** `app/insights/page.tsx` — `.gte("date", since)` for the 26-week heatmap window. `app/page.tsx` — no `.gte()` filter so all logs are available for retroactive check-ins on past dates.
+
+---
+
+### Service worker update problem — why new deploys aren't visible
+
+A PWA's service worker caches the app shell (HTML, JS, CSS) so it loads instantly offline. When a new version is deployed to Vercel, the browser may still be serving the *cached* old version because the service worker intercepts the network request before it reaches Vercel. The browser checks for a new service worker version in the background, but only replaces it after all tabs of the app are closed and reopened.
+
+**Why we hit it:** After every significant Vercel deploy during v1.5, the live URL kept showing the old UI on both desktop and mobile. Fix: manually unregister the service worker in DevTools → Application → Service Workers → Unregister, then hard refresh. Long-term fix: add an in-app "Update available — refresh" banner (a common PWA pattern using the `workbox-window` library).
+
+**Where:** Managed by `@ducanh2912/next-pwa` which generates `public/sw.js`. The update detection behavior is Workbox's default — the new service worker waits until all tabs close before activating.
+
+---
+
+### Heatmap horizontal scroll vs. auto-fit
+
+Two approaches to fit a wide grid on mobile: (1) `overflow-x-auto` lets the user scroll sideways — simple but feels like a broken layout; (2) calculate how many columns fit the screen with `Math.floor((window.innerWidth - padding) / cellWidth)` and only render that many — no scroll, but you lose older history. We used option 2 for the heatmap's default mobile view, with a "View full history" toggle that switches to option 1 for users who want to see everything. `isMobile` state (set in a `useEffect`) is needed because `window` doesn't exist on the server.
+
+**Why we used it:** The heatmap's 26 weeks × 18px = 468px is wider than most phones. Horizontal scroll felt accidental. Fitting to screen feels intentional, and the toggle preserves access to the full data.
+
+**Where:** `app/insights/page.tsx` — `compactWeeks`, `isMobile`, `showFullHeatmap` states; `useEffect` that reads `window.innerWidth`.
+
+---
+
 ## Slice 5: PWA Setup
 
 ### Web App Manifest

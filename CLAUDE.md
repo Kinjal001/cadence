@@ -12,6 +12,13 @@ Stack: Next.js (App Router, TypeScript), Tailwind CSS, Supabase, deployed on Ver
 I'm a beginner learning by building. After every change, briefly explain in
 plain language: what changed, why, and any new concept.
 
+## Before starting any feature
+
+Read `CONTEXT.md` first to understand the current app state, what's already built, and what's coming next. This prevents duplicating work, misunderstanding the data model, or building in the wrong direction. After completing any feature, update:
+- `PLAN.md` — check off completed items, update slice status line
+- `CONTEXT.md` — update current app state and what's next sections
+- `LEARNING.md` — add any new concepts introduced
+
 ## Standing instructions — keep these files current automatically
 
 After completing any significant change or slice, do both of the following
@@ -32,3 +39,5 @@ Each entry should include:
 
 Do not ask before doing this — just keep both files current as part of
 finishing the work.
+
+Keep CONTEXT.md updated at the end of each slice — update the slice progress, current app state, and 'what's next' sections.
