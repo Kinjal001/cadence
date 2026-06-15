@@ -200,7 +200,7 @@ create table tasks (
 - [x] Today page — scrollable date strip (past 30 + next 14 days, today highlighted with filled pill), clickable month/year label opens calendar picker, quote card moved above strip, equal 50/50 dailies+tasks layout, streak insight below tasks column (both desktop and mobile), future dates now allowed
 - [x] Today page — quote card redesigned: gradient background (#EDE9FE → #F5F3FF), decorative large " watermark top-left, 16px italic text, 1px #DDD6FE border, rounded-2xl
 - [x] Today page — tasks split into Pending (sorted by deadline asc, overdue first, no-deadline last) and Completed today (only tasks marked done on the viewed date, using new `completed_date date` column in Supabase)
-- [ ] Tasks page — date navigation bar, overdue tasks bubble to top, tasks sorted by due date
+- [x] Tasks page — scrollable date strip + calendar picker (same as Today page); smart sections: Overdue (today only), Due on date, Upcoming 7 days (future dates, collapsible), No Date, Completed; Pending/Done tabs show all tasks regardless of date; deadline pre-filled with selected date on add
 - [ ] Tags system — user-created tags for dailies + tasks; new `tags` and `daily_tags`/`task_tags` junction tables in Supabase
 - [ ] Today page — user avatar with account/settings menu on mobile (already live; wire up real settings page)
 

@@ -160,11 +160,18 @@ scripts/
 - Sidebar "Insights" nav item active; rhythm ring live
 
 **Tasks page (`/tasks`) — Supabase-backed:**
-- Header with date + "**+ Add task**" button (opens inline add form)
-- Filter chips: **All · Pending · Done** — All splits into Active / Completed sections with divider
-- Task cards with: priority dot (red/amber/gray), title, category pill (hashed color), deadline, overdue badge (red), checkbox, delete button
-- Inline add form: title (required), category, deadline date picker, priority selector
-- Empty state per filter tab (with add button for pending/all)
+- Header with "**+ Add task**" button (opens inline add form; deadline pre-filled with currently selected date)
+- **Scrollable date strip** — same 45-cell horizontal strip as Today page (past 30 + next 14); today highlighted; clicking month/year label opens calendar picker; "Today" jump button when off today
+- **Filter chips** (below date strip): **All · Pending · Done**
+- **All tab — smart date sections:**
+  - Today selected: **Overdue** (red, incomplete tasks past deadline) → **Due Today** → **No Date** → **Completed** (all done tasks)
+  - Future date selected: **Due on [date]** → **Upcoming · 7 Days** (next 7 days, collapsible, hidden by default) → **No Date**
+  - Past date selected: all tasks with `deadline = selected date` (complete and incomplete), incomplete first
+- **Pending tab**: all incomplete tasks sorted by deadline ascending (overdue first, no-deadline last) — ignores date strip
+- **Done tab**: all completed tasks — ignores date strip
+- Task cards: priority dot (red/amber/gray), title, category pill (hashed color), deadline, overdue badge (red), checkbox, `completed_date` written on toggle, delete button
+- Inline add form: title (required), category, deadline date picker (pre-filled with view date), priority selector
+- Empty state per context (with add button)
 - Sidebar shows correct "Today's rhythm" ring (fetches daily counts alongside tasks)
 - Mobile: bottom nav
 

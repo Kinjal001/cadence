@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
@@ -20,6 +20,7 @@ interface Task {
   done: boolean;
   priority: Priority;
   created_at: string;
+  completedDate: string | null;
 }
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -29,16 +30,35 @@ function localDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function fmtDeadline(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function getDateStr(): string {
-  return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+function fmtDateFull(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
-function isOverdue(task: Task): boolean {
-  return !task.done && !!task.deadline && task.deadline < localDate();
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function buildCalendarCells(year: number, month: number): (string | null)[] {
+  const firstDow = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const startPad = (firstDow + 6) % 7;
+  const cells: (string | null)[] = Array(startPad).fill(null);
+  for (let d = 1; d <= totalDays; d++) {
+    cells.push(`${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  return cells;
 }
 
 const PRIORITY_COLOR: Record<Priority, string> = {
@@ -49,19 +69,27 @@ const PRIORITY_COLOR: Record<Priority, string> = {
 
 const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
 
-// Palette of (bg, text) pairs — category pills pick one deterministically from the name
 const PILL_PALETTES = [
-  { bg: "#EDE9FE",               text: "oklch(0.44 0.22 293)" }, // violet
-  { bg: "oklch(0.93 0.05 240)", text: "oklch(0.40 0.14 240)" }, // blue
-  { bg: "oklch(0.93 0.04 165)", text: "oklch(0.36 0.12 165)" }, // emerald
-  { bg: "oklch(0.96 0.05 76)",  text: "oklch(0.46 0.13 76)"  }, // amber
-  { bg: "oklch(0.94 0.03 195)", text: "oklch(0.40 0.10 195)" }, // teal
+  { bg: "#EDE9FE",               text: "oklch(0.44 0.22 293)" },
+  { bg: "oklch(0.93 0.05 240)", text: "oklch(0.40 0.14 240)" },
+  { bg: "oklch(0.93 0.04 165)", text: "oklch(0.36 0.12 165)" },
+  { bg: "oklch(0.96 0.05 76)",  text: "oklch(0.46 0.13 76)"  },
+  { bg: "oklch(0.94 0.03 195)", text: "oklch(0.40 0.10 195)" },
 ];
 
 function pillColor(cat: string) {
   let h = 0;
   for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) & 0xffff;
   return PILL_PALETTES[h % PILL_PALETTES.length];
+}
+
+function sortByDeadlineAsc(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return a.deadline.localeCompare(b.deadline);
+  });
 }
 
 function sortByPriority(tasks: Task[]): Task[] {
@@ -99,19 +127,38 @@ const BOTTOM_NAV = [
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [sidebarDone, setSidebarDone] = useState(0);
+  const todayStr = localDate();
+
+  const [tasks,        setTasks]        = useState<Task[]>([]);
+  const [sidebarDone,  setSidebarDone]  = useState(0);
   const [sidebarTotal, setSidebarTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterTab>("all");
-  const [addingTask, setAddingTask] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [newDeadline, setNewDeadline] = useState("");
-  const [newPriority, setNewPriority] = useState<Priority>("medium");
+  const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
+  const [filter,       setFilter]       = useState<FilterTab>("all");
+  const [viewDate,     setViewDate]     = useState(todayStr);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calYear,      setCalYear]      = useState(() => new Date().getFullYear());
+  const [calMonth,     setCalMonth]     = useState(() => new Date().getMonth());
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [addingTask,   setAddingTask]   = useState(false);
+  const [newTitle,     setNewTitle]     = useState("");
+  const [newCategory,  setNewCategory]  = useState("");
+  const [newDeadline,  setNewDeadline]  = useState("");
+  const [newPriority,  setNewPriority]  = useState<Priority>("medium");
+  const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    requestAnimationFrame(() => {
+      const el = stripRef.current?.querySelector("[data-today]") as HTMLElement | null;
+      if (el && stripRef.current) {
+        const cw = stripRef.current.clientWidth;
+        stripRef.current.scrollLeft = el.offsetLeft - cw / 2 + el.offsetWidth / 2;
+      }
+    });
+  }, [loading]);
 
   async function loadData() {
     setLoading(true);
@@ -132,13 +179,14 @@ export default function TasksPage() {
       setSidebarDone((logsData ?? []).length);
       setTasks(
         (data ?? []).map((t) => ({
-          id:         t.id as string,
-          title:      t.title as string,
-          category:   (t.category as string | null) ?? null,
-          deadline:   (t.deadline as string | null) ?? null,
-          done:       (t.done as boolean) ?? false,
-          priority:   ((t.priority as Priority) ?? "medium"),
-          created_at: t.created_at as string,
+          id:           t.id as string,
+          title:        t.title as string,
+          category:     (t.category as string | null) ?? null,
+          deadline:     (t.deadline as string | null) ?? null,
+          done:         (t.done as boolean) ?? false,
+          priority:     ((t.priority as Priority) ?? "medium"),
+          created_at:   t.created_at as string,
+          completedDate: (t.completed_date as string | null) ?? null,
         }))
       );
     } catch (err) {
@@ -151,13 +199,20 @@ export default function TasksPage() {
   const toggleTask = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: !t.done } : t));
-    await db().from("tasks").update({ done: !task.done }).eq("id", id);
+    const nowDone = !task.done;
+    const completedDate = nowDone ? todayStr : null;
+    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: nowDone, completedDate } : t));
+    await db().from("tasks").update({ done: nowDone, completed_date: completedDate }).eq("id", id);
   };
 
   const deleteTask = async (id: string) => {
     setTasks((ts) => ts.filter((t) => t.id !== id));
     await db().from("tasks").delete().eq("id", id);
+  };
+
+  const openAddForm = () => {
+    setNewDeadline(viewDate);
+    setAddingTask(true);
   };
 
   const cancelAdd = () => {
@@ -173,38 +228,72 @@ export default function TasksPage() {
     if (!title) return;
     const { data } = await db()
       .from("tasks")
-      .insert({
-        title,
-        category: newCategory.trim() || null,
-        deadline:  newDeadline || null,
-        priority:  newPriority,
-        done:      false,
-      })
+      .insert({ title, category: newCategory.trim() || null, deadline: newDeadline || null, priority: newPriority, done: false })
       .select()
       .single();
     if (data) {
       setTasks((ts) => [
         ...ts,
         {
-          id:         data.id as string,
-          title:      data.title as string,
-          category:   (data.category as string | null) ?? null,
-          deadline:   (data.deadline as string | null) ?? null,
-          done:       false,
-          priority:   newPriority,
-          created_at: data.created_at as string,
+          id:           data.id as string,
+          title:        data.title as string,
+          category:     (data.category as string | null) ?? null,
+          deadline:     (data.deadline as string | null) ?? null,
+          done:         false,
+          priority:     newPriority,
+          created_at:   data.created_at as string,
+          completedDate: null,
         },
       ]);
     }
     cancelAdd();
   };
 
+  /* ── Calendar handlers ── */
+
+  const openCalendar = () => {
+    const d = new Date(viewDate + "T00:00:00");
+    setCalYear(d.getFullYear());
+    setCalMonth(d.getMonth());
+    setCalendarOpen((o) => !o);
+  };
+  const prevCalMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear((y) => y - 1); }
+    else setCalMonth((m) => m - 1);
+  };
+  const nextCalMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear((y) => y + 1); }
+    else setCalMonth((m) => m + 1);
+  };
+
   /* ── Derived ── */
 
-  const pending = sortByPriority(tasks.filter((t) => !t.done));
-  const done    = tasks.filter((t) => t.done);
+  const isToday  = viewDate === todayStr;
+  const isFuture = viewDate > todayStr;
+  const isPast   = viewDate < todayStr;
 
-  /* ── Loading / Error screen ── */
+  const dateRange     = Array.from({ length: 45 }, (_, i) => addDays(todayStr, i - 30));
+  const viewMonthLabel = new Date(viewDate + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const calCells      = buildCalendarCells(calYear, calMonth);
+
+  const allPending = tasks.filter((t) => !t.done);
+  const allDone    = tasks.filter((t) => t.done);
+
+  // Sections for "All" tab smart view
+  const overdueTasks    = sortByDeadlineAsc(allPending.filter((t) => t.deadline && t.deadline < todayStr));
+  const dueOnDateTasks  = sortByPriority(allPending.filter((t) => t.deadline === viewDate));
+  const upcomingTasks   = sortByDeadlineAsc(
+    allPending.filter((t) => t.deadline && t.deadline > viewDate && t.deadline <= addDays(viewDate, 7))
+  );
+  const noDateTasks     = sortByPriority(allPending.filter((t) => !t.deadline));
+  const pastViewTasks   = [...tasks.filter((t) => t.deadline === viewDate)].sort((a, b) =>
+    a.done !== b.done ? (a.done ? 1 : -1) : PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+  );
+
+  // Pending / Done tabs show ALL tasks regardless of date strip
+  const pendingForTab = sortByDeadlineAsc(allPending);
+
+  /* ── Loading / Error ── */
 
   if (loading || loadError) {
     return (
@@ -233,55 +322,41 @@ export default function TasksPage() {
     );
   }
 
-  /* ── Task card renderer ── */
+  /* ── Task card ── */
+
+  const overdueFlag = (task: Task) => !task.done && !!task.deadline && task.deadline < todayStr;
 
   const renderCard = (task: Task) => (
     <div
       key={task.id}
       className={`flex items-start gap-3 px-[14px] py-[11px] bg-white border rounded-[12px] transition-colors card-lift ${
-        isOverdue(task) ? "border-[oklch(0.86_0.08_25)]" : "border-[var(--border)]"
+        overdueFlag(task) ? "border-[oklch(0.86_0.08_25)]" : "border-[var(--border)]"
       }`}
     >
-      {/* Priority dot */}
       <div
         className="w-[7px] h-[7px] rounded-full flex-shrink-0 mt-[5px]"
         style={{ background: PRIORITY_COLOR[task.priority] }}
         title={`${task.priority} priority`}
       />
-
-      {/* Content */}
       <div className="flex flex-col gap-[5px] min-w-0 flex-1">
-        <span
-          className={`text-[14px] font-medium leading-snug transition-colors ${
-            task.done
-              ? "text-[var(--text-subtle)] line-through"
-              : "text-[var(--text-primary)]"
-          }`}
-        >
+        <span className={`text-[14px] font-medium leading-snug transition-colors ${task.done ? "text-[var(--text-subtle)] line-through" : "text-[var(--text-primary)]"}`}>
           {task.title}
         </span>
-
         {(task.category || task.deadline) && (
           <div className="flex items-center gap-[6px] flex-wrap">
             {task.category && (
               <span
                 className="px-[8px] py-[2px] rounded-full text-[11px] font-medium"
-                style={{
-                  background: pillColor(task.category).bg,
-                  color:      pillColor(task.category).text,
-                }}
+                style={{ background: pillColor(task.category).bg, color: pillColor(task.category).text }}
               >
                 {task.category}
               </span>
             )}
             {task.deadline && (
-              <span className={`font-mono text-[10.5px] tracking-[0.02em] ${isOverdue(task) ? "text-[oklch(0.52_0.18_25)]" : "text-[var(--text-subtle)]"}`}>
+              <span className={`font-mono text-[10.5px] tracking-[0.02em] ${overdueFlag(task) ? "text-[oklch(0.52_0.18_25)]" : "text-[var(--text-subtle)]"}`}>
                 {fmtDeadline(task.deadline)}
-                {isOverdue(task) && (
-                  <span
-                    className="ml-[5px] px-[5px] py-[1px] rounded-full text-[9.5px] font-semibold"
-                    style={{ background: "oklch(0.96 0.05 25)", color: "oklch(0.50 0.18 25)" }}
-                  >
+                {overdueFlag(task) && (
+                  <span className="ml-[5px] px-[5px] py-[1px] rounded-full text-[9.5px] font-semibold" style={{ background: "oklch(0.96 0.05 25)", color: "oklch(0.50 0.18 25)" }}>
                     Overdue
                   </span>
                 )}
@@ -290,21 +365,15 @@ export default function TasksPage() {
           </div>
         )}
       </div>
-
-      {/* Checkbox */}
       <button
         onClick={() => toggleTask(task.id)}
         className={`w-[22px] h-[22px] flex-shrink-0 mt-[1px] rounded-[7px] flex items-center justify-center text-[13px] font-bold cursor-pointer transition-all duration-150 border-2 ${
-          task.done
-            ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white"
-            : "bg-white border-[oklch(0.89_0.006_264)] text-transparent hover:border-[var(--btn-primary)]"
+          task.done ? "bg-[var(--btn-primary)] border-[var(--btn-primary)] text-white" : "bg-white border-[oklch(0.89_0.006_264)] text-transparent hover:border-[var(--btn-primary)]"
         }`}
         title={task.done ? "Mark pending" : "Mark done"}
       >
         ✓
       </button>
-
-      {/* Delete */}
       <button
         onClick={() => deleteTask(task.id)}
         className="w-[22px] h-[22px] flex-shrink-0 mt-[1px] flex items-center justify-center text-[var(--text-subtle)] hover:text-[oklch(0.52_0.18_25)] cursor-pointer bg-transparent border-none transition-colors rounded"
@@ -319,14 +388,119 @@ export default function TasksPage() {
     </div>
   );
 
-  /* ── Main render ── */
+  /* ── Section label ── */
 
-  const listToShow = filter === "pending" ? pending : done;
+  const renderSectionLabel = (
+    label: string,
+    count: number,
+    opts?: { red?: boolean; collapsible?: boolean; expanded?: boolean; onToggle?: () => void }
+  ) => (
+    <div className="flex items-center gap-3 mb-3">
+      <span className={`font-mono text-[10px] tracking-[0.08em] uppercase whitespace-nowrap ${opts?.red ? "text-[oklch(0.52_0.18_25)]" : "text-[var(--text-subtle)]"}`}>
+        {label} · {count}
+      </span>
+      <div className={`flex-1 h-px ${opts?.red ? "bg-[oklch(0.90_0.05_25)]" : "bg-[var(--border)]"}`} />
+      {opts?.collapsible && (
+        <button
+          onClick={opts.onToggle}
+          className="font-mono text-[10px] tracking-[0.06em] uppercase text-[var(--btn-primary)] bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity"
+        >
+          {opts.expanded ? "hide" : "show"}
+        </button>
+      )}
+    </div>
+  );
+
+  /* ── Smart "All" tab sections ── */
+
+  const renderAllTab = () => {
+    if (isPast) {
+      return (
+        <div>
+          <p className="font-mono text-[12px] text-[var(--text-secondary)] mb-4">{fmtDateFull(viewDate)}</p>
+          {pastViewTasks.length === 0
+            ? <EmptyState message="No tasks were due on this date." />
+            : <div className="flex flex-col gap-2">{pastViewTasks.map(renderCard)}</div>
+          }
+        </div>
+      );
+    }
+
+    if (isToday) {
+      const empty = overdueTasks.length + dueOnDateTasks.length + noDateTasks.length + allDone.length === 0;
+      if (empty) return <EmptyState onAdd={openAddForm} />;
+      return (
+        <div className="flex flex-col gap-5">
+          {overdueTasks.length > 0 && (
+            <div>
+              {renderSectionLabel("Overdue", overdueTasks.length, { red: true })}
+              <div className="flex flex-col gap-2">{overdueTasks.map(renderCard)}</div>
+            </div>
+          )}
+          {dueOnDateTasks.length > 0 && (
+            <div>
+              {renderSectionLabel("Due Today", dueOnDateTasks.length)}
+              <div className="flex flex-col gap-2">{dueOnDateTasks.map(renderCard)}</div>
+            </div>
+          )}
+          {noDateTasks.length > 0 && (
+            <div>
+              {renderSectionLabel("No Date", noDateTasks.length)}
+              <div className="flex flex-col gap-2">{noDateTasks.map(renderCard)}</div>
+            </div>
+          )}
+          {allDone.length > 0 && (
+            <div>
+              {renderSectionLabel("Completed", allDone.length)}
+              <div className="flex flex-col gap-2">{allDone.map(renderCard)}</div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Future date
+    if (isFuture) {
+      const empty = dueOnDateTasks.length + upcomingTasks.length + noDateTasks.length === 0;
+      if (empty) return <EmptyState message={`Nothing scheduled for ${fmtDeadline(viewDate)}.`} onAdd={openAddForm} />;
+      return (
+        <div className="flex flex-col gap-5">
+          {dueOnDateTasks.length > 0 && (
+            <div>
+              {renderSectionLabel(`Due ${fmtDeadline(viewDate)}`, dueOnDateTasks.length)}
+              <div className="flex flex-col gap-2">{dueOnDateTasks.map(renderCard)}</div>
+            </div>
+          )}
+          {upcomingTasks.length > 0 && (
+            <div>
+              {renderSectionLabel("Upcoming · 7 Days", upcomingTasks.length, {
+                collapsible: true,
+                expanded: upcomingExpanded,
+                onToggle: () => setUpcomingExpanded((v) => !v),
+              })}
+              {upcomingExpanded && (
+                <div className="flex flex-col gap-2">{upcomingTasks.map(renderCard)}</div>
+              )}
+            </div>
+          )}
+          {noDateTasks.length > 0 && (
+            <div>
+              {renderSectionLabel("No Date", noDateTasks.length)}
+              <div className="flex flex-col gap-2">{noDateTasks.map(renderCard)}</div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  /* ── Main render ── */
 
   return (
     <div className="flex h-full overflow-hidden bg-[#F4F3FF] text-[var(--text-primary)] antialiased">
 
-      {/* Sidebar */}
       <div className="hidden md:flex">
         <Sidebar doneCount={sidebarDone} totalDailies={sidebarTotal} activeNav="tasks" />
       </div>
@@ -335,18 +509,13 @@ export default function TasksPage() {
         <div className="max-w-[680px]">
 
           {/* Header */}
-          <header className="mb-6 md:mb-7">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="font-heading font-bold text-[26px] md:text-[31px] leading-[1.15] tracking-[-0.035em] text-[oklch(0.28_0.04_264)] m-0">
-                  Tasks
-                </h1>
-                <p className="font-mono text-[12px] md:text-[13.5px] tracking-[0.01em] text-[var(--text-muted)] mt-2 md:mt-[10px]">
-                  {getDateStr()}
-                </p>
-              </div>
+          <header className="mb-5 md:mb-6">
+            <div className="flex items-center justify-between gap-4">
+              <h1 className="font-heading font-bold text-[26px] md:text-[31px] leading-[1.15] tracking-[-0.035em] text-[oklch(0.28_0.04_264)] m-0">
+                Tasks
+              </h1>
               <button
-                onClick={() => setAddingTask(true)}
+                onClick={openAddForm}
                 className="flex-shrink-0 flex items-center gap-[7px] px-[14px] py-[9px] text-[13px] font-semibold text-white bg-[var(--btn-primary)] rounded-[10px] border-none cursor-pointer hover:bg-[var(--violet-dark)] transition-colors shadow-[0_4px_12px_-3px_oklch(0.70_0.19_293_/_0.35)]"
               >
                 <span className="text-[16px] leading-none font-normal">+</span>
@@ -355,10 +524,105 @@ export default function TasksPage() {
             </div>
           </header>
 
-          {/* Filter chips */}
+          {/* Date navigation */}
+          <div className="mb-5">
+            {/* Month/year label + Today jump */}
+            <div className="flex items-center justify-between mb-[10px]">
+              <button
+                onClick={openCalendar}
+                className="flex items-center gap-[5px] font-mono text-[12px] font-semibold tracking-[0.01em] text-[var(--text-secondary)] hover:text-[var(--btn-primary)] bg-transparent border-none cursor-pointer transition-colors p-0"
+              >
+                {viewMonthLabel}
+                <svg
+                  width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  style={{ transform: calendarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}
+                >
+                  <polyline points="2,4 6,8 10,4" />
+                </svg>
+              </button>
+              {!isToday && (
+                <button
+                  onClick={() => { setViewDate(todayStr); setCalendarOpen(false); }}
+                  className="font-mono text-[11px] font-medium text-[var(--btn-primary)] bg-[var(--violet-active)] px-[10px] py-[4px] rounded-full border-none cursor-pointer hover:bg-[oklch(0.88_0.07_293)] transition-colors"
+                >
+                  Today
+                </button>
+              )}
+            </div>
+
+            {/* Calendar picker */}
+            {calendarOpen && (
+              <div className="bg-white border border-[var(--border)] rounded-[14px] p-4 mb-3 shadow-[0_4px_20px_-6px_oklch(0.70_0.19_293_/_0.15)]">
+                <div className="flex items-center justify-between mb-3">
+                  <button onClick={prevCalMonth} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-[var(--text-secondary)] transition-colors">
+                    <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="8,2 4,6 8,10" /></svg>
+                  </button>
+                  <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">
+                    {MONTH_NAMES[calMonth]} {calYear}
+                  </span>
+                  <button onClick={nextCalMonth} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-[var(--text-secondary)] transition-colors">
+                    <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="4,2 8,6 4,10" /></svg>
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 mb-1">
+                  {["M","T","W","T","F","S","S"].map((l, i) => (
+                    <div key={i} className="flex items-center justify-center font-mono text-[10px] text-[var(--text-subtle)] py-1">{l}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-[2px]">
+                  {calCells.map((cell, i) =>
+                    cell === null ? <div key={i} /> : (
+                      <button
+                        key={cell}
+                        onClick={() => { setViewDate(cell); setCalendarOpen(false); }}
+                        className={`flex items-center justify-center h-8 rounded-[8px] font-mono text-[12px] border-none cursor-pointer transition-colors ${
+                          cell === viewDate
+                            ? "bg-[var(--btn-primary)] text-white"
+                            : cell === todayStr
+                            ? "bg-[var(--violet-active)] text-[var(--btn-primary)] font-semibold"
+                            : "bg-transparent text-[var(--text-primary)] hover:bg-[var(--violet-active)]"
+                        }`}
+                      >
+                        {parseInt(cell.slice(-2))}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Scrollable date strip */}
+            <div ref={stripRef} className="flex gap-[5px] overflow-x-auto no-scrollbar pb-1 px-[2px]">
+              {dateRange.map((dateStr) => {
+                const isSelected  = dateStr === viewDate;
+                const isThisToday = dateStr === todayStr;
+                const dayLetter   = DAY_LETTERS[new Date(dateStr + "T00:00:00").getDay()];
+                const dayNum      = parseInt(dateStr.slice(-2));
+                return (
+                  <button
+                    key={dateStr}
+                    data-today={isThisToday ? "true" : undefined}
+                    onClick={() => { setViewDate(dateStr); setCalendarOpen(false); }}
+                    className={`flex flex-col items-center gap-[4px] w-[44px] py-[10px] rounded-[10px] flex-shrink-0 cursor-pointer border-none transition-colors ${
+                      isSelected
+                        ? "bg-[var(--btn-primary)] text-white"
+                        : isThisToday
+                        ? "bg-[var(--violet-active)] text-[var(--btn-primary)]"
+                        : "bg-transparent text-[var(--text-secondary)] hover:bg-white"
+                    }`}
+                  >
+                    <span className="font-mono text-[9.5px] leading-none">{dayLetter}</span>
+                    <span className="font-mono font-semibold text-[15px] leading-none">{dayNum}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Filter chips — moved below date strip */}
           <div className="flex gap-2 mb-5">
             {(["all", "pending", "done"] as FilterTab[]).map((tab) => {
-              const count = tab === "all" ? tasks.length : tab === "pending" ? pending.length : done.length;
+              const count = tab === "all" ? tasks.length : tab === "pending" ? allPending.length : allDone.length;
               return (
                 <button
                   key={tab}
@@ -407,12 +671,8 @@ export default function TasksPage() {
                   className="w-[155px] flex-shrink-0 px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                 />
               </div>
-
-              {/* Priority selector */}
               <div>
-                <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)] block mb-[7px]">
-                  Priority
-                </span>
+                <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)] block mb-[7px]">Priority</span>
                 <div className="flex gap-2">
                   {(["high", "medium", "low"] as Priority[]).map((p) => {
                     const selected = newPriority === p;
@@ -430,22 +690,15 @@ export default function TasksPage() {
                         }`}
                         style={selected ? selectedStyles[p] : {}}
                       >
-                        <span
-                          className="w-[6px] h-[6px] rounded-full flex-shrink-0"
-                          style={{ background: PRIORITY_COLOR[p] }}
-                        />
+                        <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ background: PRIORITY_COLOR[p] }} />
                         {p.charAt(0).toUpperCase() + p.slice(1)}
                       </button>
                     );
                   })}
                 </div>
               </div>
-
               <div className="flex justify-end gap-2 pt-[2px]">
-                <button
-                  onClick={cancelAdd}
-                  className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]"
-                >
+                <button onClick={cancelAdd} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">
                   Cancel
                 </button>
                 <button
@@ -459,47 +712,17 @@ export default function TasksPage() {
             </div>
           )}
 
-          {/* Task list — "All" view splits into Active + Completed sections */}
+          {/* Task list */}
           {filter === "all" ? (
-            tasks.length === 0 ? (
-              <EmptyState onAdd={() => setAddingTask(true)} />
-            ) : (
-              <>
-                {pending.length > 0 && (
-                  <div className="flex flex-col gap-2 mb-5">
-                    {pending.map(renderCard)}
-                  </div>
-                )}
-                {done.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)] whitespace-nowrap">
-                        Completed · {done.length}
-                      </span>
-                      <div className="flex-1 h-px bg-[var(--border)]" />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {done.map(renderCard)}
-                    </div>
-                  </>
-                )}
-                {pending.length === 0 && done.length > 0 && (
-                  <p className="font-mono text-[12px] text-[var(--text-subtle)] text-center mt-4 mb-2">
-                    All done — great work!
-                  </p>
-                )}
-              </>
-            )
+            renderAllTab()
+          ) : filter === "pending" ? (
+            pendingForTab.length === 0
+              ? <EmptyState message="Nothing pending — you're all clear." onAdd={openAddForm} />
+              : <div className="flex flex-col gap-2">{pendingForTab.map(renderCard)}</div>
           ) : (
-            listToShow.length === 0 ? (
-              filter === "pending"
-                ? <EmptyState message="Nothing pending — you're all clear." onAdd={() => setAddingTask(true)} />
-                : <EmptyState message="No completed tasks yet." />
-            ) : (
-              <div className="flex flex-col gap-2">
-                {listToShow.map(renderCard)}
-              </div>
-            )
+            allDone.length === 0
+              ? <EmptyState message="No completed tasks yet." />
+              : <div className="flex flex-col gap-2">{allDone.map(renderCard)}</div>
           )}
 
         </div>

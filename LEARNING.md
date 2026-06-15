@@ -705,7 +705,23 @@ When sorting tasks by deadline, tasks with no deadline should appear after all d
 
 **Why we used it:** The pending tasks list on the Today page puts overdue tasks at the top (earliest deadline first) and tasks with no deadline at the bottom, so the most urgent work is always visible first.
 
-**Where:** `app/page.tsx` — `pendingTasks` derived array.
+**Where:** `app/page.tsx` — `pendingTasks` derived array. Also `app/tasks/page.tsx` — `sortByDeadlineAsc()` used for `pendingForTab` and `overdueTasks`.
+
+---
+
+### Splitting task views by date context — "smart sections"
+
+Instead of one flat list of all tasks, the Tasks page now shows different sections depending on which date is selected in the strip. The key insight is that tasks have a different *relationship* to the current date depending on their deadline:
+- If `deadline < today` → **Overdue** (needs attention now)
+- If `deadline === selectedDate` → **Due on this date** (what's on the calendar for today/that day)
+- If `deadline` is in the next 7 days after selectedDate → **Upcoming** (approaching but not urgent)
+- If no deadline → **No Date** (always at the bottom, lowest priority by placement)
+
+For past dates, showing all tasks with that deadline (done or incomplete) turns the date strip into a historical log of what was due when.
+
+**Why we used it:** A flat "All tasks" list gets overwhelming as tasks accumulate. Organizing by date relationship makes the most important items (overdue, due today) visually prominent without any extra interaction.
+
+**Where:** `app/tasks/page.tsx` — `renderAllTab()` function; `overdueTasks`, `dueOnDateTasks`, `upcomingTasks`, `noDateTasks`, `pastViewTasks` derived arrays.
 
 ---
 
