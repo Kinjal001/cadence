@@ -9,6 +9,14 @@ import { DailyCard, type Accent } from "@/components/DailyCard";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
+type Priority = "high" | "medium" | "low";
+
+const PRIORITY_COLOR: Record<Priority, string> = {
+  high:   "oklch(0.55 0.20 25)",
+  medium: "oklch(0.70 0.13 76)",
+  low:    "oklch(0.68 0.01 264)",
+};
+
 interface Daily {
   id: string;
   name: string;
@@ -144,6 +152,7 @@ export default function TodayPage() {
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [newTaskCategory, setNewTaskCategory] = useState("");
   const [newTaskDeadline, setNewTaskDeadline] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<Priority>("medium");
 
   useEffect(() => {
     loadData();
@@ -288,6 +297,7 @@ export default function TodayPage() {
     setNewTaskLabel("");
     setNewTaskCategory("");
     setNewTaskDeadline("");
+    setNewTaskPriority("medium");
   };
 
   const addTask = async () => {
@@ -303,6 +313,7 @@ export default function TodayPage() {
         title: label,
         category: newTaskCategory.trim() || null,
         deadline: newTaskDeadline || null,
+        priority: newTaskPriority,
       })
       .select()
       .single();
@@ -572,7 +583,7 @@ export default function TodayPage() {
                         value={newTaskCategory}
                         onChange={(e) => setNewTaskCategory(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") addTask(); if (e.key === "Escape") cancelTask(); }}
-                        placeholder="Category — optional (e.g. Work, Personal)"
+                        placeholder="Category — optional"
                         className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                       />
                       <input
@@ -582,6 +593,28 @@ export default function TodayPage() {
                         onKeyDown={(e) => { if (e.key === "Escape") cancelTask(); }}
                         className="w-full px-3 py-[9px] text-[14px] bg-[#F8F8FC] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                       />
+                      {/* Priority */}
+                      <div className="flex gap-[6px] pt-[2px]">
+                        {(["high", "medium", "low"] as Priority[]).map((p) => {
+                          const sel = newTaskPriority === p;
+                          const selStyle: Record<Priority, React.CSSProperties> = {
+                            high:   { background: "oklch(0.96 0.04 25)",  color: "oklch(0.50 0.18 25)",  borderColor: "oklch(0.82 0.10 25)"  },
+                            medium: { background: "oklch(0.97 0.04 76)",  color: "oklch(0.50 0.13 76)",  borderColor: "oklch(0.84 0.09 76)"  },
+                            low:    { background: "#F4F4F8",               color: "var(--text-secondary)", borderColor: "var(--border-soft)"   },
+                          };
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => setNewTaskPriority(p)}
+                              className={`flex-1 py-[6px] text-[12px] rounded-[8px] cursor-pointer border transition-all flex items-center justify-center gap-[5px] ${sel ? "font-semibold" : "font-medium bg-transparent border-[var(--border)] text-[var(--text-subtle)] hover:border-[var(--border-soft)]"}`}
+                              style={sel ? selStyle[p] : {}}
+                            >
+                              <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: PRIORITY_COLOR[p] }} />
+                              {p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button onClick={cancelTask} className="px-3 py-[7px] text-[13px] font-medium text-[var(--text-secondary)] bg-transparent border border-[var(--border)] rounded-[9px] cursor-pointer hover:bg-[#F4F4F8]">Cancel</button>

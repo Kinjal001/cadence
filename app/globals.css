@@ -35,6 +35,11 @@
   --font-mono:    var(--font-jetbrains-mono), monospace;
 }
 
+/* Prevent browser default blue link color from bleeding into <Link> nav items */
+a {
+  color: inherit;
+}
+
 /* Explicit light theme on root elements — prevents system dark mode bleed */
 html,
 body {

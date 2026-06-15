@@ -100,6 +100,8 @@ const BOTTOM_NAV = [
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [sidebarDone, setSidebarDone] = useState(0);
+  const [sidebarTotal, setSidebarTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>("all");
@@ -115,11 +117,19 @@ export default function TasksPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data, error } = await db()
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: true });
+      const today = localDate();
+      const [
+        { data, error },
+        { data: dailiesData },
+        { data: logsData },
+      ] = await Promise.all([
+        db().from("tasks").select("*").order("created_at", { ascending: true }),
+        db().from("dailies").select("id"),
+        db().from("daily_logs").select("daily_id").eq("date", today),
+      ]);
       if (error) throw new Error(error.message);
+      setSidebarTotal((dailiesData ?? []).length);
+      setSidebarDone((logsData ?? []).length);
       setTasks(
         (data ?? []).map((t) => ({
           id:         t.id as string,
@@ -200,7 +210,7 @@ export default function TasksPage() {
     return (
       <div className="flex h-full overflow-hidden bg-[#F8F8FC]">
         <div className="hidden md:flex">
-          <Sidebar doneCount={0} totalDailies={0} activeNav="tasks" />
+          <Sidebar doneCount={sidebarDone} totalDailies={sidebarTotal} activeNav="tasks" />
         </div>
         <main className="flex-1 flex items-center justify-center bg-[#F8F8FC]">
           {loadError ? (
@@ -318,7 +328,7 @@ export default function TasksPage() {
 
       {/* Sidebar */}
       <div className="hidden md:flex">
-        <Sidebar doneCount={0} totalDailies={0} activeNav="tasks" />
+        <Sidebar doneCount={sidebarDone} totalDailies={sidebarTotal} activeNav="tasks" />
       </div>
 
       <main className="flex-1 overflow-y-auto bg-[#F8F8FC] px-6 py-8 pb-24 md:px-[52px] md:py-[44px] md:pb-[64px]">
