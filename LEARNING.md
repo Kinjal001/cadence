@@ -676,6 +676,51 @@ A month calendar grid is just a 7-column CSS grid of day cells, with empty cells
 
 ---
 
+### Tracking completion date with a separate `date` column
+
+When you store only a boolean `done: true` in the database, you lose all information about *when* the task was completed. To show "tasks completed today" separately from tasks completed on previous days, we added a `completed_date date` column. When a task is checked off, we write the current local date (`localDate(0)`, which uses `getFullYear/getMonth/getDate` to avoid UTC-shift bugs) to this column. Unchecking sets it back to `null`.
+
+Using a `date` type (rather than `timestamptz`) avoids timezone problems — we store the date the user experienced, not a UTC timestamp that might roll over to the previous day for UTC+5:30 users working past midnight UTC.
+
+**Why we used it:** Supabase's `boolean done` tells you the current state but not the history. A dedicated `completed_date` column lets us filter "today's wins" from "old completed items" without loading or parsing timestamps.
+
+**Where:** `tasks` table — `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_date date;`. `app/page.tsx` — `toggleTask()` writes `completed_date: nowDone ? todayStr : null`; `completedTodayTasks` filters by `t.completedDate === viewDate`.
+
+---
+
+### Sorting by a nullable field — null last
+
+When sorting tasks by deadline, tasks with no deadline should appear after all dated tasks, not before them. JavaScript's default sort puts `undefined`/`null` inconsistently across browsers. The safe pattern:
+
+```typescript
+.sort((a, b) => {
+  if (!a.deadline && !b.deadline) return 0;
+  if (!a.deadline) return 1;   // a has no deadline → goes last
+  if (!b.deadline) return -1;  // b has no deadline → goes last
+  return a.deadline.localeCompare(b.deadline); // YYYY-MM-DD compares correctly as strings
+});
+```
+
+`YYYY-MM-DD` strings compare correctly with `localeCompare` (or even `<`/`>`) because the date format is big-endian — year first, then month, then day — so lexicographic order equals chronological order.
+
+**Why we used it:** The pending tasks list on the Today page puts overdue tasks at the top (earliest deadline first) and tasks with no deadline at the bottom, so the most urgent work is always visible first.
+
+**Where:** `app/page.tsx` — `pendingTasks` derived array.
+
+---
+
+### CSS gradient backgrounds and decorative watermark text
+
+`background: linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%)` creates a diagonal gradient from a soft lavender to near-white. The direction `135deg` goes from top-left to bottom-right, giving the card a gentle depth.
+
+For the decorative large `"` watermark: it's an absolutely-positioned `<span>` with a huge `font-size` (72px), low `opacity` (0.28), and `pointer-events: none` so it doesn't interfere with clicking. `aria-hidden="true"` hides it from screen readers since it's purely decorative. The text sits behind the content div because it's earlier in the DOM (painted first) and the content div uses `position: relative` to stack above it.
+
+**Why we used it:** A large semi-transparent quotation mark in the corner immediately signals "this is a quote" before the reader processes the text — it's a common design pattern in editorial and book-like UIs. The gradient background gives the card warmth without feeling heavy or distracting.
+
+**Where:** `app/page.tsx` — the quote card `div` (gradient + border) and the `<span aria-hidden>` watermark inside it.
+
+---
+
 ## Slice 5: PWA Setup
 
 ### Web App Manifest

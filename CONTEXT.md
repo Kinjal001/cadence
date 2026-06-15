@@ -126,13 +126,17 @@ scripts/
 
 **Today screen (`/`) — Supabase-backed:**
 - Large greeting (time-aware: morning/afternoon/evening) + today's full date in monospace; K avatar button (mobile) with account dropdown
-- **Daily motivational quote card** — 20 stoic/growth quotes, rotated by day-of-year; warm left-border blockquote style; appears between greeting and date strip; shown on today's view only
-- **Scrollable date strip** — horizontal scroll, past 30 days + next 14 days (45 cells total); today highlighted with filled `--btn-primary` pill; selected non-today date gets filled pill; auto-scrolls to center today on load; future dates allowed
-  - **Month/year label** above strip (e.g. "June 2026") — clicking opens an inline calendar picker (full month grid, no library, Mon-first, prev/next month nav); clicking any date in picker selects it and closes picker; "Today" jump button appears when not on today
-- **Equal 50/50 two-column layout** (desktop): Left = Dailies section, Right = Tasks section; stacks vertically on mobile (dailies first, then tasks)
+- **Daily motivational quote card** — 20 stoic/growth quotes, rotated by day-of-year; gradient background (`#EDE9FE → #F5F3FF`), large decorative `"` watermark (72px, `#A78BFA`, 28% opacity) top-left, 16px italic text, 1px `#DDD6FE` border, rounded-2xl; appears between greeting and date strip; shown on today's view only
+- **Scrollable date strip** — horizontal scroll, past 30 days + next 14 days (45 cells total); today highlighted with filled `--btn-primary` pill; selected non-today date gets filled pill; auto-scrolls to center today on load; future dates allowed; scrollbar hidden (`no-scrollbar` utility)
+  - **Month/year label** above strip (e.g. "June 2026") — clicking opens an inline calendar picker (full month grid in JSX, no library, Mon-first, prev/next month nav); clicking any date selects it and closes picker; "Today" jump button appears on the right when not viewing today
+- **Equal 50/50 two-column layout** (desktop): Left = Dailies, Right = Tasks + streak insight below; stacks vertically on mobile (dailies first, then tasks, then streak insight)
 - Dailies (left column): toggle done/not-done for selected date, 7-day dot row, streak counter; completed items sort to bottom; "+ Add daily" inline form
-- Tasks (right column): today view shows all tasks + "+ Add task" form with priority/category/deadline; past/future dates show tasks with `deadline === viewDate` (read-only)
-- **Streak insight card** — mobile only (`md:hidden`), full width, at the bottom of the page below tasks; hidden on desktop (it lives on the Insights page)
+- Tasks (right column — today view):
+  - **Pending**: all incomplete tasks sorted by deadline ascending (overdue first, no-deadline last)
+  - **Completed today**: sub-section showing only tasks whose `completed_date` matches the viewed date — done tasks from other days are excluded; `completed_date` is written to Supabase when a task is checked off
+  - "+ Add task" inline form with title, category, deadline, priority
+- Tasks (right column — past/future date view): tasks with `deadline === viewDate`, read-only (no add form)
+- **Streak insight card** — sits at the bottom of the right (tasks) column; visible on both desktop and mobile; full width of that column; purple gradient with top streak name, days-to-milestone countdown, and progress bar
 - Sidebar: logo, nav (Today active), rhythm progress ring, account menu
 - Mobile: bottom nav, sidebar hidden
 
