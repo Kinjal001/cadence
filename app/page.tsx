@@ -476,18 +476,28 @@ export default function TodayPage() {
           </div>
         </header>
 
-        {/* ── Daily quote card — moved above date strip, today only ── */}
+        {/* ── Daily quote card — above date strip, today only ── */}
         {isToday && (
           <div
-            className="rounded-r-[12px] px-5 py-[15px] mb-5"
-            style={{ borderLeft: "3px solid #815BEB", background: "oklch(0.965 0.016 293)" }}
+            className="relative rounded-[16px] px-6 py-5 mb-5 overflow-hidden"
+            style={{ background: "linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%)", border: "1px solid #DDD6FE" }}
           >
-            <p className="text-[13.5px] md:text-[14px] leading-[1.72] italic text-[var(--text-primary)] m-0">
-              &ldquo;{quote.text}&rdquo;
-            </p>
-            <p className="font-mono text-[11px] text-[var(--text-subtle)] text-right mt-[9px] mb-0">
-              — {quote.author}
-            </p>
+            {/* Decorative large quotation mark — watermark in top-left */}
+            <span
+              aria-hidden="true"
+              className="absolute top-[-2px] left-4 font-heading font-bold leading-none select-none pointer-events-none"
+              style={{ fontSize: "72px", color: "#A78BFA", opacity: 0.28 }}
+            >
+              &ldquo;
+            </span>
+            <div className="relative">
+              <p className="text-[16px] leading-[1.75] italic text-[#1E1B3A] m-0 pt-7">
+                {quote.text}
+              </p>
+              <p className="font-mono text-[11px] text-[var(--text-subtle)] text-right mt-[10px] mb-0">
+                — {quote.author}
+              </p>
+            </div>
           </div>
         )}
 
@@ -687,8 +697,9 @@ export default function TodayPage() {
             </div>
           </section>
 
-          {/* RIGHT — Tasks */}
-          <section className="flex-1 min-w-0 w-full">
+          {/* RIGHT — Tasks + Streak insight */}
+          <div className="flex-1 min-w-0 w-full flex flex-col gap-6">
+          <section className="w-full">
             <div className="flex items-baseline justify-between mb-4">
               <h2 className="font-heading font-semibold text-[16px] tracking-[-0.015em] text-[oklch(0.36_0.04_264)] m-0">
                 Tasks
@@ -817,10 +828,7 @@ export default function TodayPage() {
             )}
           </section>
 
-        </div>
-
-        {/* ── Streak insight — mobile only, full width at bottom ── */}
-        <div className="md:hidden mt-7">
+          {/* Streak insight — below tasks on both desktop and mobile */}
           <div className="insight-card rounded-[16px] p-5 text-white flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] tracking-[0.12em] uppercase opacity-75">Streak insight</span>
@@ -847,6 +855,9 @@ export default function TodayPage() {
               </div>
             </div>
           </div>
+
+          </div>{/* end right column wrapper */}
+
         </div>
 
       </main>
