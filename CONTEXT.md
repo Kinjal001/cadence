@@ -70,7 +70,7 @@ All tokens live in `app/globals.css` `:root`. Components never hardcode hex — 
 
 A Daily is a recurring daily behavior the user checks in on — e.g. Movement, Journaling, Learning. Each daily has:
 - A **name** and optional **description**
-- An **accent color** (one of 4 options: violet / blue / emerald / amber)
+- An **accent color** (one of 6 options: violet / blue / emerald / amber / pink / cyan)
 - A **streak counter** (consecutive days done)
 - A **7-day dot row** (past 6 days + today, filled = done)
 - A **done/not-done toggle** for today
@@ -87,9 +87,10 @@ This is distinct from a Task (one-off, has a deadline, category, and priority). 
 | 1a | Supabase setup + Dailies CRUD | ✅ Complete |
 | 1b | Today screen UI + state | ✅ Complete |
 | 2 | Tasks (full CRUD route) | ✅ Complete (2026-06-15) |
-| 3 | Insights view | ⬜ Not started |
-| 4 | PWA (installable, offline) | ⬜ Not started |
-| 5 | Auth (multi-device) | ⬜ Not started |
+| 3 | Dailies management page | ✅ Complete (2026-06-15) |
+| 4 | Insights view | ⬜ Not started |
+| 5 | PWA (installable, offline) | ⬜ Not started |
+| 6 | Auth (multi-device) | ⬜ Not started |
 
 ---
 
@@ -98,14 +99,16 @@ This is distinct from a Task (one-off, has a deadline, category, and priority). 
 **File structure (non-boilerplate):**
 ```
 app/
-  globals.css         — light theme tokens, accent classes, @theme inline fonts, card-lift utility
+  globals.css         — light theme tokens, 6 accent classes, @theme inline fonts, card-lift utility
   layout.tsx          — 3 Google fonts via next/font/google, html/body setup
   page.tsx            — Today screen (all state lives here, Supabase reads/writes)
+  dailies/
+    page.tsx          — Dailies management (add/edit/delete, 6-color picker, streak + best + 7-day history)
   tasks/
     page.tsx          — Tasks page (filter tabs, priority, category, deadline, completed section)
 components/
   Sidebar.tsx         — desktop sidebar: logo, nav, progress ring, account menu
-  DailyCard.tsx       — individual daily card with accent color, streak, 7-day dots
+  DailyCard.tsx       — individual daily card (used on Today screen); Accent type = violet|blue|emerald|amber|pink|cyan
 lib/
   supabase.ts         — lazy singleton Supabase client (db() function)
 ```
@@ -119,6 +122,16 @@ lib/
   - "+ Add task" inline form: title, category, deadline, priority selector (high/medium/low)
 - Sidebar: logo, nav (Today active), rhythm progress ring, account menu stub
 - Mobile: bottom nav, sidebar hidden
+
+**Dailies page (`/dailies`) — Supabase-backed:**
+- Header with count + "+ Add daily" button
+- 2-column card grid (1-col on mobile): each card shows accent dot + name, description, current streak, longest-ever streak, 7-day dot history row, pencil + trash icons
+- Edit mode: clicking pencil transforms the card in-place into a form (name, description, 6-color picker); Save writes to Supabase and updates local state
+- Delete: optimistic removal from UI; Supabase cascade deletes associated `daily_logs`
+- Add form: opens above the grid; same fields + color picker with ring+checkmark selection indicator
+- 6-color picker: violet, blue, emerald, amber, pink, cyan — swatches use the actual CSS oklch values
+- Empty state with call-to-action button
+- Sidebar "Dailies" nav item active; rhythm ring live
 
 **Tasks page (`/tasks`) — Supabase-backed:**
 - Header with date + "**+ Add task**" button (opens inline add form)
@@ -154,7 +167,7 @@ Note: `priority` column was added via `ALTER TABLE tasks ADD COLUMN priority tex
 
 ---
 
-## What's next — Slice 3: Insights
+## What's next — Slice 4: Insights
 
 A read-only view derived entirely from existing data — no new tables needed.
 

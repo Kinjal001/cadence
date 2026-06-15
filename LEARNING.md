@@ -411,3 +411,76 @@ Introducing `--btn-primary: #815BEB` (slightly darker, more saturated than `#A78
 **Why we used it:** After switching to lavender, buttons felt weak — the eye didn't naturally want to click them. A dedicated button token lets us tune button contrast independently without touching checkboxes, rings, or nav active states.
 
 **Where:** `app/globals.css` — `--btn-primary: #815BEB`. Used via `bg-[var(--btn-primary)]` on all action buttons in `app/page.tsx` and `app/tasks/page.tsx`. Hover state uses the existing `--violet-dark: #7C5CE8`.
+
+---
+
+## Slice 3: Dailies Management Page
+
+### CRUD operations — Create, Read, Update, Delete
+CRUD is the four fundamental things you can do with data stored in a database:
+- **Create** — insert a new row (`INSERT`)
+- **Read** — fetch rows (`SELECT`)
+- **Update** — change an existing row (`UPDATE`)
+- **Delete** — remove a row (`DELETE`)
+
+Most features in an app are just CRUD in disguise. The Dailies management page is a pure CRUD interface: the add form creates, the card view reads, the edit form updates, and the trash button deletes.
+
+**Why we used it:** The Today screen only has create (quick-add) and read (see today's dailies). The Dailies page adds the missing pieces: edit (change a name or color after the fact) and delete (remove a daily you no longer want to track).
+
+**Where:** `app/dailies/page.tsx` — `addDaily()` (create), `loadData()` (read), `saveEdit()` (update), `deleteDaily()` (delete). Each maps to a Supabase call: `.insert()`, `.select()`, `.update()`, `.delete()`.
+
+---
+
+### In-place edit state pattern (`editingId`)
+Instead of opening a separate modal or navigating to a new page to edit something, you can track which item is being edited with a single piece of state — the id of the item. The list renderer checks `editingId === item.id` and renders either the normal view or the edit form, depending on the match.
+
+**Why we used it:** Editing a daily in-place (the card transforms into a form) feels faster and more fluid than a modal. It also avoids managing open/close modal state separately — `editingId = null` means "nothing is editing," and `editingId = "some-uuid"` means "that card is in edit mode."
+
+**Where:** `app/dailies/page.tsx` — `const [editingId, setEditingId] = useState<string | null>(null)`. Inside the `.map()`, each card checks `if (editingId === daily.id)` and branches to the edit form or the normal card view.
+
+---
+
+### Color picker with `ring` selection indicator
+A color picker is just a row of buttons where each button's background is a color value. To show which one is selected, Tailwind's `ring-2 ring-offset-2` utilities add a visible outline ring with a white gap between the ring and the button. The `ring-offset` uses the background of the parent (white card) to create that gap visually — it's implemented as a layered `box-shadow` under the hood.
+
+**Why we used it:** Color swatches are circular and small (30px) so there's no room for a label. The ring makes the selected state obvious without adding text or extra elements. A white checkmark SVG inside the swatch gives a second visual confirmation.
+
+**Where:** `ColorPicker` component in `app/dailies/page.tsx`. Reused in both the add form and the edit form to avoid duplicating the 6-swatch row.
+
+---
+
+### Extracting a sub-component to avoid duplication
+When the same chunk of JSX needs to appear in two places in the same file (here: the color picker appears in both the add form and the in-place edit form), you extract it into a small component defined in the same file. You only need a single `function` above the main page component — no separate file required.
+
+**Why we used it:** The `ColorPicker` component with its 6 swatches, label, and selection logic would need to be copy-pasted into both the add form and each card's edit form. One extraction means one place to change if the color palette grows.
+
+**Where:** `ColorPicker` function in `app/dailies/page.tsx`, defined before `DailiesPage`. Takes `value: Accent` and `onChange: (a: Accent) => void` as props — same pattern as a controlled input.
+
+---
+
+### Computing longest streak from log history
+The "current streak" only looks backward from today. The "longest streak" requires scanning all historical dates and finding the longest consecutive run — a different algorithm.
+
+The approach: sort all logged dates in chronological order, then walk the array comparing each date to the previous one. If they're exactly 1 day apart, extend the current run; otherwise, reset to 1. Track the maximum seen so far.
+
+**Why we used it:** Showing both "current streak" and "best ever" makes the stats motivating — you can see your personal record even if your current streak has reset.
+
+**Where:** `computeLongestStreak(dates: Set<string>)` helper in `app/dailies/page.tsx`. Takes a `Set<string>` of ISO date strings (e.g. `"2026-06-10"`). ISO strings sort correctly as plain strings because they're zero-padded (YYYY-MM-DD), so `.sort()` on an array of them gives chronological order without a custom comparator.
+
+---
+
+### `import type` — importing only the TypeScript type, not the runtime value
+When you only need a TypeScript type from another file (not a function or component), you can write `import type { Foo } from "./bar"`. This tells TypeScript: "I only need Foo at compile time for type-checking. Don't include the module in the JavaScript bundle for this feature."
+
+**Why we used it:** `app/dailies/page.tsx` needs the `Accent` type (to annotate state variables and function parameters) but doesn't use the `DailyCard` component itself. Writing `import type { Accent }` makes the intent explicit and keeps the bundle clean.
+
+**Where:** `app/dailies/page.tsx` — `import type { Accent } from "@/components/DailyCard"`.
+
+---
+
+### Data consistency across pages: one source of truth
+When the same data appears on multiple pages (dailies appear on both `/` and `/dailies`), changes made on one page need to also show up on the other. In this app, both pages fetch fresh data from Supabase on mount, so any change is reflected the next time you navigate to that page.
+
+**Why we learned it:** A daily created on the Dailies page with a pink color needed to appear correctly on the Today screen. This only works because both pages read from the same `dailies` table, and the `DailyCard` component on the Today screen had its `Accent` type extended to include `"pink"` and `"cyan"` — and the CSS `.accent-pink` and `.accent-cyan` classes were added to `globals.css`. If any of those three things were missing, pink dailies would render without a color.
+
+**Where:** The `Accent` type lives in `components/DailyCard.tsx` and is imported (via `import type`) by `app/dailies/page.tsx`. The accent CSS classes live in `app/globals.css` and apply globally to any element with the matching class name.

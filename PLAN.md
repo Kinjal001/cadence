@@ -129,7 +129,27 @@ create table tasks (
 
 ---
 
-### Slice 3: Insights — Weekly Stats and Consistency View
+### Slice 3: Dailies — Management Page — ✅ Complete (2026-06-15)
+
+**Goal:** A dedicated page for managing dailies — add, edit, delete — separate from the Today check-in screen. Exposes streak history, longest-ever streak, and a color picker.
+
+- [x] `/dailies` route with a 2-column card grid
+- [x] Each card: accent dot + name, description, current streak, longest streak, 7-day dot history row
+- [x] Edit button: card transforms in-place into a form (name, description, color)
+- [x] Delete button: removes the daily (cascades to `daily_logs` via Supabase FK)
+- [x] `+ Add daily` header button: opens an inline form above the grid
+- [x] Color picker: 6 preset swatches (violet, blue, emerald, amber, pink, cyan) with ring + checkmark selection indicator
+- [x] Empty state with call-to-action button
+- [x] Sidebar "Dailies" nav item active; rhythm ring reads live counts
+- [x] Extended `Accent` type and added `.accent-pink` / `.accent-cyan` CSS classes so new colors work on Today screen too
+
+**Data model additions:** none (reads/writes to existing `dailies` table; `daily_logs` cascade-deleted on daily delete)
+
+**Done when:** You can add a new daily with a pink color, see it appear on both `/dailies` and the Today screen, edit its name, and delete it — confirming it disappears from both places.
+
+---
+
+### Slice 4: Insights — Weekly Stats and Consistency View
 
 **Goal:** A read-only view that surfaces how you're doing — completion rates, streaks over the last four weeks, and a week summary. No new data — everything is derived from existing tables.
 
@@ -145,7 +165,7 @@ create table tasks (
 
 ---
 
-### Slice 4: PWA Setup — Installable and Offline-Friendly
+### Slice 5: PWA Setup — Installable and Offline-Friendly
 
 **Goal:** Make Cadence installable to the home screen on mobile and desktop, with a cached shell so the Today view loads instantly even without a network connection.
 
@@ -163,7 +183,7 @@ create table tasks (
 
 ---
 
-### Slice 5: Auth — Multi-Device Access
+### Slice 6: Auth — Multi-Device Access
 
 **Goal:** Add Supabase Auth so your data follows you across devices. Deliberately deferred — single-device use should feel solid first.
 
@@ -199,7 +219,7 @@ create policy "users see own dailies"
 |------|----------|--------|
 | 2026-06-14 | Started fresh with Next.js, retiring the Flutter project (Jarvis) | Web-first means no native build toolchain, instant deploys, easier to iterate with AI pair programming |
 | 2026-06-14 | Supabase as the backend | Postgres + auth + real-time in one service; generous free tier; first-class Next.js support |
-| 2026-06-14 | Auth deferred to Slice 5 | Single-device use covers the v1 use case; adding auth earlier adds friction without shipping value |
+| 2026-06-14 | Auth deferred to Slice 6 | Single-device use covers the v1 use case; adding auth earlier adds friction without shipping value |
 | 2026-06-14 | Goals and Projects deferred past v1 | The Dailies + Tasks loop needs to feel right before adding planning layers on top |
 | 2026-06-14 | Merged Habits and Dailies into a single "Dailies" concept | The distinction added complexity without clear user value at v1 scale; one unified daily check-in model is simpler to build and use |
 | 2026-06-14 | OKLCH color space for daily colors | Perceptually uniform — two dailies at the same lightness/chroma but different hues look equally vivid, unlike HSL |
@@ -208,3 +228,5 @@ create policy "users see own dailies"
 | 2026-06-15 | Split button color from accent: `--btn-primary` `#815BEB` vs `--violet` `#A78BFA` | Buttons need to read as interactive controls; soft lavender `#A78BFA` is too low-contrast for a fill. Checkboxes, rings, and nav active stay lavender because they're state indicators, not actions. |
 | 2026-06-15 | Background `#F4F3FF` instead of near-white `#F8F8FC` | Subtle lavender tint gives cards something to lift off of; pure near-white felt flat with white cards |
 | 2026-06-15 | Tasks page extended beyond v1 plan: added priority + category | Priority (high/medium/low) and freeform category felt essential to make task cards useful; added `priority` column via `ALTER TABLE` |
+| 2026-06-15 | Added Dailies management page as Slice 3 (not in original plan) | Today screen only has a quick-add form; a dedicated page for edit/delete/history was needed to make dailies feel manageable |
+| 2026-06-15 | Extended accent palette from 4 to 6 colors (added pink + cyan) | More variety makes the daily grid visually richer; both colors are implemented as CSS accent classes and work across all pages |
