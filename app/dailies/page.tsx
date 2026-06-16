@@ -2,13 +2,19 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { db } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import type { Accent } from "@/components/DailyCard";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface Daily {
   id: string;
@@ -17,8 +23,9 @@ interface Daily {
   accent: Accent;
   streak: number;
   longestStreak: number;
-  past: boolean[];   // last 6 days
+  past: boolean[];
   doneToday: boolean;
+  tags: Tag[];
 }
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
@@ -31,6 +38,24 @@ const ACCENT_OPTIONS: { value: Accent; label: string; bg: string }[] = [
   { value: "pink",    label: "Pink",    bg: "oklch(0.68 0.16 350)" },
   { value: "cyan",    label: "Cyan",    bg: "oklch(0.62 0.14 200)" },
 ];
+
+const TAG_COLOR_MAP: Record<string, { bg: string; text: string }> = {
+  violet:  { bg: "oklch(0.92 0.05 293)", text: "oklch(0.44 0.22 293)" },
+  blue:    { bg: "oklch(0.93 0.05 240)", text: "oklch(0.40 0.14 240)" },
+  emerald: { bg: "oklch(0.93 0.04 165)", text: "oklch(0.36 0.12 165)" },
+  amber:   { bg: "oklch(0.96 0.05 76)",  text: "oklch(0.46 0.13 76)"  },
+  pink:    { bg: "oklch(0.94 0.04 350)", text: "oklch(0.44 0.16 350)" },
+  cyan:    { bg: "oklch(0.93 0.04 200)", text: "oklch(0.40 0.10 200)" },
+  red:     { bg: "oklch(0.96 0.04 25)",  text: "oklch(0.50 0.18 25)"  },
+  slate:   { bg: "oklch(0.94 0.01 264)", text: "oklch(0.50 0.01 264)" },
+};
+const TAG_PALETTE = Object.keys(TAG_COLOR_MAP);
+
+function tagAutoColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
+}
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 
@@ -67,15 +92,9 @@ function computeLongestStreak(dates: Set<string>): number {
   return longest;
 }
 
-/* ─── Color picker swatch ───────────────────────────────────────────────────── */
+/* ─── Color picker ───────────────────────────────────────────────────────────── */
 
-function ColorPicker({
-  value,
-  onChange,
-}: {
-  value: Accent;
-  onChange: (a: Accent) => void;
-}) {
+function ColorPicker({ value, onChange }: { value: Accent; onChange: (a: Accent) => void }) {
   return (
     <div>
       <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)] block mb-[8px]">
@@ -102,6 +121,107 @@ function ColorPicker({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Tag chips + input ──────────────────────────────────────────────────────── */
+
+function TagChipsInput({
+  selectedTags,
+  tagInput,
+  allTags,
+  onRemoveTag,
+  onAddTag,
+  onInputChange,
+  onInputKeyDown,
+  onCommit,
+}: {
+  selectedTags: Tag[];
+  tagInput: string;
+  allTags: Tag[];
+  onRemoveTag: (id: string) => void;
+  onAddTag: (tag: Tag) => void;
+  onInputChange: (v: string) => void;
+  onInputKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onCommit: () => void;
+}) {
+  const suggestions = allTags.filter(
+    (t) =>
+      tagInput.trim().length > 0 &&
+      t.name.toLowerCase().includes(tagInput.trim().toLowerCase()) &&
+      !selectedTags.some((st) => st.id === t.id)
+  );
+  const showCreate =
+    tagInput.trim().length > 0 &&
+    !allTags.some((t) => t.name.toLowerCase() === tagInput.trim().toLowerCase()) &&
+    !selectedTags.some((t) => t.name.toLowerCase() === tagInput.trim().toLowerCase());
+
+  return (
+    <div className="flex flex-col gap-[7px]">
+      <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)]">Tags</span>
+      {selectedTags.length > 0 && (
+        <div className="flex gap-[6px] flex-wrap">
+          {selectedTags.map((tag) => {
+            const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+            return (
+              <span
+                key={tag.id}
+                className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-full text-[11px] font-medium"
+                style={{ background: colors.bg, color: colors.text }}
+              >
+                #{tag.name}
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onRemoveTag(tag.id)}
+                  className="flex items-center justify-center w-[14px] h-[14px] rounded-full text-[12px] leading-none bg-transparent border-none cursor-pointer opacity-60 hover:opacity-100"
+                  style={{ color: colors.text }}
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          type="text"
+          value={tagInput}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={onInputKeyDown}
+          placeholder="Type a tag name — press Enter or , to add"
+          className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+        />
+        {(suggestions.length > 0 || showCreate) && (
+          <div className="absolute top-full left-0 right-0 z-20 bg-white border border-[var(--border)] rounded-[9px] shadow-[0_4px_16px_-4px_oklch(0.70_0.19_293_/_0.15)] mt-[2px] overflow-hidden">
+            {suggestions.map((tag) => {
+              const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+              return (
+                <button
+                  key={tag.id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onAddTag(tag)}
+                  className="w-full flex items-center gap-[8px] px-3 py-[8px] text-[13px] text-[var(--text-primary)] hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-left transition-colors"
+                >
+                  <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: colors.text }} />
+                  #{tag.name}
+                </button>
+              );
+            })}
+            {showCreate && (
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onCommit}
+                className={`w-full flex items-center gap-[8px] px-3 py-[8px] text-[13px] text-[var(--btn-primary)] hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-left transition-colors ${suggestions.length > 0 ? "border-t border-[var(--border)]" : ""}`}
+              >
+                <span className="text-[15px] leading-none font-light">+</span>
+                Create &ldquo;{tagInput.trim()}&rdquo;
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -135,21 +255,27 @@ const BOTTOM_NAV = [
 /* ─── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function DailiesPage() {
-  const [dailies, setDailies] = useState<Daily[]>([]);
-  const [sidebarDone, setSidebarDone] = useState(0);
+  const [dailies,      setDailies]      = useState<Daily[]>([]);
+  const [sidebarDone,  setSidebarDone]  = useState(0);
   const [sidebarTotal, setSidebarTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState<string | null>(null);
+  const [allTags,       setAllTags]       = useState<Tag[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
   const [addingDaily, setAddingDaily] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newAccent, setNewAccent] = useState<Accent>("violet");
+  const [newName,     setNewName]     = useState("");
+  const [newDesc,     setNewDesc]     = useState("");
+  const [newAccent,   setNewAccent]   = useState<Accent>("violet");
+  const [newTags,     setNewTags]     = useState<Tag[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editAccent, setEditAccent] = useState<Accent>("violet");
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [editName,    setEditName]    = useState("");
+  const [editDesc,    setEditDesc]    = useState("");
+  const [editAccent,  setEditAccent]  = useState<Accent>("violet");
+  const [editTags,    setEditTags]    = useState<Tag[]>([]);
+  const [editTagInput, setEditTagInput] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
@@ -161,11 +287,17 @@ export default function DailiesPage() {
       const [
         { data: dailiesData, error: e1 },
         { data: logsData,    error: e2 },
+        { data: tagsData },
       ] = await Promise.all([
-        db().from("dailies").select("*").order("created_at", { ascending: true }),
+        db().from("dailies").select("*, daily_tags(tags(id, name, color))").order("created_at", { ascending: true }),
         db().from("daily_logs").select("daily_id, date"),
+        db().from("tags").select("id, name, color").order("name", { ascending: true }),
       ]);
       if (e1 ?? e2) throw new Error(((e1 ?? e2)!).message);
+
+      setAllTags(
+        (tagsData ?? []).map((t) => ({ id: t.id as string, name: t.name as string, color: t.color as string }))
+      );
 
       const logsByDaily: Record<string, Set<string>> = {};
       for (const log of logsData ?? []) {
@@ -186,6 +318,9 @@ export default function DailiesPage() {
           longestStreak: computeLongestStreak(dates),
           past,
           doneToday,
+          tags: ((d.daily_tags as { tags: { id: string; name: string; color: string } | null }[] | null) ?? [])
+            .map((dt) => dt.tags)
+            .filter((tag): tag is Tag => tag !== null),
         };
       });
 
@@ -199,6 +334,54 @@ export default function DailiesPage() {
     }
   }
 
+  /* ── Tag helpers ── */
+
+  async function resolveTagsForSave(tags: Tag[], setAll: typeof setAllTags): Promise<Tag[]> {
+    const resolved: Tag[] = [];
+    for (const tag of tags) {
+      if (tag.id.startsWith("_new_")) {
+        const { data } = await db().from("tags").insert({ name: tag.name, color: tag.color }).select().single();
+        if (data) {
+          const created: Tag = { id: data.id as string, name: data.name as string, color: data.color as string };
+          resolved.push(created);
+          setAll((ts) => [...ts, created].sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      } else {
+        resolved.push(tag);
+      }
+    }
+    return resolved;
+  }
+
+  function makeTagHandlers(
+    tags: Tag[],
+    setTags: React.Dispatch<React.SetStateAction<Tag[]>>,
+    input: string,
+    setInput: React.Dispatch<React.SetStateAction<string>>
+  ) {
+    const addTag = (tag: Tag) => {
+      if (!tags.some((t) => t.id === tag.id)) setTags((ts) => [...ts, tag]);
+      setInput("");
+    };
+    const commit = () => {
+      const name = input.trim().replace(/,$/, "");
+      if (!name) return;
+      const existing = allTags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      if (existing) { addTag(existing); return; }
+      const tempTag: Tag = { id: `_new_${name}`, name, color: tagAutoColor(name) };
+      if (!tags.some((t) => t.name.toLowerCase() === name.toLowerCase())) setTags((ts) => [...ts, tempTag]);
+      setInput("");
+    };
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commit(); return; }
+      if (e.key === "Backspace" && !input && tags.length > 0) setTags((ts) => ts.slice(0, -1));
+    };
+    return { addTag, commit, handleKeyDown };
+  }
+
+  const newTagHandlers = makeTagHandlers(newTags, setNewTags, newTagInput, setNewTagInput);
+  const editTagHandlers = makeTagHandlers(editTags, setEditTags, editTagInput, setEditTagInput);
+
   /* ── Add ── */
 
   const cancelAdd = () => {
@@ -206,28 +389,39 @@ export default function DailiesPage() {
     setNewName("");
     setNewDesc("");
     setNewAccent("violet");
+    setNewTags([]);
+    setNewTagInput("");
   };
 
   const addDaily = async () => {
     const name = newName.trim();
     if (!name) return;
+
+    const resolvedTags = await resolveTagsForSave(newTags, setAllTags);
+
     const { data } = await db()
       .from("dailies")
       .insert({ name, description: newDesc.trim() || null, color: newAccent })
       .select()
       .single();
+
     if (data) {
+      const dailyId = data.id as string;
+      if (resolvedTags.length > 0) {
+        await db().from("daily_tags").insert(resolvedTags.map((t) => ({ daily_id: dailyId, tag_id: t.id })));
+      }
       setDailies((ds) => [
         ...ds,
         {
-          id: data.id as string,
+          id:           dailyId,
           name,
-          desc: newDesc.trim(),
-          accent: newAccent,
-          streak: 0,
+          desc:         newDesc.trim(),
+          accent:       newAccent,
+          streak:       0,
           longestStreak: 0,
-          past: [false, false, false, false, false, false],
-          doneToday: false,
+          past:         [false, false, false, false, false, false],
+          doneToday:    false,
+          tags:         resolvedTags,
         },
       ]);
       setSidebarTotal((n) => n + 1);
@@ -242,6 +436,8 @@ export default function DailiesPage() {
     setEditName(daily.name);
     setEditDesc(daily.desc);
     setEditAccent(daily.accent);
+    setEditTags(daily.tags);
+    setEditTagInput("");
   };
 
   const cancelEdit = () => {
@@ -249,18 +445,25 @@ export default function DailiesPage() {
     setEditName("");
     setEditDesc("");
     setEditAccent("violet");
+    setEditTags([]);
+    setEditTagInput("");
   };
 
   const saveEdit = async (id: string) => {
     const name = editName.trim();
     if (!name) return;
-    await db()
-      .from("dailies")
-      .update({ name, description: editDesc.trim() || null, color: editAccent })
-      .eq("id", id);
+
+    const resolvedTags = await resolveTagsForSave(editTags, setAllTags);
+
+    await db().from("dailies").update({ name, description: editDesc.trim() || null, color: editAccent }).eq("id", id);
+    await db().from("daily_tags").delete().eq("daily_id", id);
+    if (resolvedTags.length > 0) {
+      await db().from("daily_tags").insert(resolvedTags.map((t) => ({ daily_id: id, tag_id: t.id })));
+    }
+
     setDailies((ds) =>
       ds.map((d) =>
-        d.id === id ? { ...d, name, desc: editDesc.trim(), accent: editAccent } : d
+        d.id === id ? { ...d, name, desc: editDesc.trim(), accent: editAccent, tags: resolvedTags } : d
       )
     );
     cancelEdit();
@@ -273,6 +476,13 @@ export default function DailiesPage() {
     setSidebarTotal((n) => Math.max(0, n - 1));
     await db().from("dailies").delete().eq("id", id);
   };
+
+  /* ── Derived ── */
+
+  const tagsOnDailies = allTags.filter((tag) => dailies.some((d) => d.tags.some((dt) => dt.id === tag.id)));
+  const filteredDailies = selectedTagId
+    ? dailies.filter((d) => d.tags.some((tag) => tag.id === selectedTagId))
+    : dailies;
 
   /* ── Loading / Error ── */
 
@@ -365,6 +575,16 @@ export default function DailiesPage() {
                   className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                 />
               </div>
+              <TagChipsInput
+                selectedTags={newTags}
+                tagInput={newTagInput}
+                allTags={allTags}
+                onRemoveTag={(id) => setNewTags((ts) => ts.filter((t) => t.id !== id))}
+                onAddTag={newTagHandlers.addTag}
+                onInputChange={setNewTagInput}
+                onInputKeyDown={newTagHandlers.handleKeyDown}
+                onCommit={newTagHandlers.commit}
+              />
               <ColorPicker value={newAccent} onChange={setNewAccent} />
               <div className="flex justify-end gap-2 pt-[2px]">
                 <button
@@ -407,10 +627,42 @@ export default function DailiesPage() {
             </div>
           )}
 
+          {/* Tag filter */}
+          {tagsOnDailies.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap mb-4">
+              <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)]">Tags</span>
+              {tagsOnDailies.map((tag) => {
+                const isSelected = selectedTagId === tag.id;
+                const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => setSelectedTagId(isSelected ? null : tag.id)}
+                    className={`flex items-center gap-[5px] px-[10px] py-[4px] rounded-full text-[12px] font-medium border transition-all cursor-pointer ${
+                      isSelected ? "border-transparent" : "bg-white border-[var(--border)] text-[var(--text-secondary)] hover:border-[oklch(0.82_0.07_293)]"
+                    }`}
+                    style={isSelected ? { background: colors.bg, color: colors.text } : {}}
+                  >
+                    <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ background: isSelected ? colors.text : "oklch(0.80 0.01 264)" }} />
+                    #{tag.name}
+                  </button>
+                );
+              })}
+              {selectedTagId && (
+                <button
+                  onClick={() => setSelectedTagId(null)}
+                  className="font-mono text-[10px] text-[var(--btn-primary)] bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Cards grid */}
-          {dailies.length > 0 && (
+          {filteredDailies.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {dailies.map((daily) => {
+              {filteredDailies.map((daily) => {
                 const dots = [...daily.past, daily.doneToday];
 
                 if (editingId === daily.id) {
@@ -438,6 +690,16 @@ export default function DailiesPage() {
                           className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
                         />
                       </div>
+                      <TagChipsInput
+                        selectedTags={editTags}
+                        tagInput={editTagInput}
+                        allTags={allTags}
+                        onRemoveTag={(id) => setEditTags((ts) => ts.filter((t) => t.id !== id))}
+                        onAddTag={editTagHandlers.addTag}
+                        onInputChange={setEditTagInput}
+                        onInputKeyDown={editTagHandlers.handleKeyDown}
+                        onCommit={editTagHandlers.commit}
+                      />
                       <ColorPicker value={editAccent} onChange={setEditAccent} />
                       <div className="flex justify-end gap-2">
                         <button
@@ -525,9 +787,39 @@ export default function DailiesPage() {
                         />
                       ))}
                     </div>
+
+                    {/* Tag chips */}
+                    {daily.tags.length > 0 && (
+                      <div className="flex items-center gap-[5px] flex-wrap">
+                        {daily.tags.map((tag) => {
+                          const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+                          return (
+                            <span
+                              key={tag.id}
+                              onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                              className="px-[7px] py-[1.5px] rounded-full text-[10.5px] font-medium cursor-pointer transition-opacity hover:opacity-75"
+                              style={{ background: colors.bg, color: colors.text }}
+                              title={`Filter by #${tag.name}`}
+                            >
+                              #{tag.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Empty filtered state */}
+          {filteredDailies.length === 0 && dailies.length > 0 && (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-[14px] text-[var(--text-secondary)] m-0">No dailies with this tag.</p>
+              <button onClick={() => setSelectedTagId(null)} className="font-mono text-[11px] text-[var(--btn-primary)] bg-transparent border-none cursor-pointer hover:opacity-70">
+                Clear filter
+              </button>
             </div>
           )}
 

@@ -12,6 +12,12 @@ import { Sidebar } from "@/components/Sidebar";
 type Priority = "high" | "medium" | "low";
 type FilterTab = "all" | "pending" | "done";
 
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -21,6 +27,7 @@ interface Task {
   priority: Priority;
   created_at: string;
   completedDate: string | null;
+  tags: Tag[];
 }
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
@@ -81,6 +88,24 @@ function pillColor(cat: string) {
   let h = 0;
   for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) & 0xffff;
   return PILL_PALETTES[h % PILL_PALETTES.length];
+}
+
+const TAG_COLOR_MAP: Record<string, { bg: string; text: string }> = {
+  violet:  { bg: "oklch(0.92 0.05 293)", text: "oklch(0.44 0.22 293)" },
+  blue:    { bg: "oklch(0.93 0.05 240)", text: "oklch(0.40 0.14 240)" },
+  emerald: { bg: "oklch(0.93 0.04 165)", text: "oklch(0.36 0.12 165)" },
+  amber:   { bg: "oklch(0.96 0.05 76)",  text: "oklch(0.46 0.13 76)"  },
+  pink:    { bg: "oklch(0.94 0.04 350)", text: "oklch(0.44 0.16 350)" },
+  cyan:    { bg: "oklch(0.93 0.04 200)", text: "oklch(0.40 0.10 200)" },
+  red:     { bg: "oklch(0.96 0.04 25)",  text: "oklch(0.50 0.18 25)"  },
+  slate:   { bg: "oklch(0.94 0.01 264)", text: "oklch(0.50 0.01 264)" },
+};
+const TAG_PALETTE = Object.keys(TAG_COLOR_MAP);
+
+function tagAutoColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return TAG_PALETTE[h % TAG_PALETTE.length];
 }
 
 function sortByDeadlineAsc(tasks: Task[]): Task[] {
@@ -145,6 +170,10 @@ export default function TasksPage() {
   const [newCategory,  setNewCategory]  = useState("");
   const [newDeadline,  setNewDeadline]  = useState("");
   const [newPriority,  setNewPriority]  = useState<Priority>("medium");
+  const [allTags,       setAllTags]       = useState<Tag[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [newTaskTags,   setNewTaskTags]   = useState<Tag[]>([]);
+  const [tagInput,      setTagInput]      = useState("");
   const stripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadData(); }, []);
@@ -169,14 +198,19 @@ export default function TasksPage() {
         { data, error },
         { data: dailiesData },
         { data: logsData },
+        { data: tagsData },
       ] = await Promise.all([
-        db().from("tasks").select("*").order("created_at", { ascending: true }),
+        db().from("tasks").select("*, task_tags(tags(id, name, color))").order("created_at", { ascending: true }),
         db().from("dailies").select("id"),
         db().from("daily_logs").select("daily_id").eq("date", today),
+        db().from("tags").select("id, name, color").order("name", { ascending: true }),
       ]);
       if (error) throw new Error(error.message);
       setSidebarTotal((dailiesData ?? []).length);
       setSidebarDone((logsData ?? []).length);
+      setAllTags(
+        (tagsData ?? []).map((t) => ({ id: t.id as string, name: t.name as string, color: t.color as string }))
+      );
       setTasks(
         (data ?? []).map((t) => ({
           id:           t.id as string,
@@ -187,6 +221,9 @@ export default function TasksPage() {
           priority:     ((t.priority as Priority) ?? "medium"),
           created_at:   t.created_at as string,
           completedDate: (t.completed_date as string | null) ?? null,
+          tags: ((t.task_tags as { tags: { id: string; name: string; color: string } | null }[] | null) ?? [])
+            .map((tt) => tt.tags)
+            .filter((tag): tag is Tag => tag !== null),
         }))
       );
     } catch (err) {
@@ -221,21 +258,47 @@ export default function TasksPage() {
     setNewCategory("");
     setNewDeadline("");
     setNewPriority("medium");
+    setNewTaskTags([]);
+    setTagInput("");
   };
 
   const addTask = async () => {
     const title = newTitle.trim();
     if (!title) return;
+
+    const resolvedTags: Tag[] = [];
+    for (const tag of newTaskTags) {
+      if (tag.id.startsWith("_new_")) {
+        const { data: tagData } = await db()
+          .from("tags")
+          .insert({ name: tag.name, color: tag.color })
+          .select()
+          .single();
+        if (tagData) {
+          const created: Tag = { id: tagData.id as string, name: tagData.name as string, color: tagData.color as string };
+          resolvedTags.push(created);
+          setAllTags((ts) => [...ts, created].sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      } else {
+        resolvedTags.push(tag);
+      }
+    }
+
     const { data } = await db()
       .from("tasks")
       .insert({ title, category: newCategory.trim() || null, deadline: newDeadline || null, priority: newPriority, done: false })
       .select()
       .single();
+
     if (data) {
+      const taskId = data.id as string;
+      if (resolvedTags.length > 0) {
+        await db().from("task_tags").insert(resolvedTags.map((t) => ({ task_id: taskId, tag_id: t.id })));
+      }
       setTasks((ts) => [
         ...ts,
         {
-          id:           data.id as string,
+          id:           taskId,
           title:        data.title as string,
           category:     (data.category as string | null) ?? null,
           deadline:     (data.deadline as string | null) ?? null,
@@ -243,10 +306,40 @@ export default function TasksPage() {
           priority:     newPriority,
           created_at:   data.created_at as string,
           completedDate: null,
+          tags: resolvedTags,
         },
       ]);
     }
     cancelAdd();
+  };
+
+  /* ── Tag input handlers ── */
+
+  const addTagToForm = (tag: Tag) => {
+    if (!newTaskTags.some((t) => t.id === tag.id)) setNewTaskTags((ts) => [...ts, tag]);
+    setTagInput("");
+  };
+
+  const commitTagInput = () => {
+    const name = tagInput.trim().replace(/,$/, "");
+    if (!name) return;
+    const existing = allTags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      addTagToForm(existing);
+    } else {
+      const tempTag: Tag = { id: `_new_${name}`, name, color: tagAutoColor(name) };
+      if (!newTaskTags.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+        setNewTaskTags((ts) => [...ts, tempTag]);
+      }
+      setTagInput("");
+    }
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitTagInput(); return; }
+    if (e.key === "Backspace" && !tagInput && newTaskTags.length > 0) {
+      setNewTaskTags((ts) => ts.slice(0, -1));
+    }
   };
 
   /* ── Calendar handlers ── */
@@ -272,33 +365,54 @@ export default function TasksPage() {
   const isFuture = viewDate > todayStr;
   const isPast   = viewDate < todayStr;
 
-  const dateRange     = Array.from({ length: 45 }, (_, i) => addDays(todayStr, i - 30));
+  const dateRange      = Array.from({ length: 45 }, (_, i) => addDays(todayStr, i - 30));
   const viewMonthLabel = new Date(viewDate + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const calCells      = buildCalendarCells(calYear, calMonth);
+  const calCells       = buildCalendarCells(calYear, calMonth);
 
   const allPending = tasks.filter((t) => !t.done);
   const allDone    = tasks.filter((t) => t.done);
 
-  // Sections for "All" tab smart view
-  const overdueTasks    = sortByDeadlineAsc(allPending.filter((t) => t.deadline && t.deadline < todayStr));
-  const dueOnDateTasks  = sortByPriority(allPending.filter((t) => t.deadline === viewDate));
-  const upcomingTasks   = sortByDeadlineAsc(
+  const overdueTasks   = sortByDeadlineAsc(allPending.filter((t) => t.deadline && t.deadline < todayStr));
+  const dueOnDateTasks = sortByPriority(allPending.filter((t) => t.deadline === viewDate));
+  const upcomingTasks  = sortByDeadlineAsc(
     allPending.filter((t) => t.deadline && t.deadline > viewDate && t.deadline <= addDays(viewDate, 7))
   );
-  const noDateTasks     = sortByPriority(allPending.filter((t) => !t.deadline));
-  const pastViewTasks   = [...tasks.filter((t) => t.deadline === viewDate)].sort((a, b) =>
+  const noDateTasks    = sortByPriority(allPending.filter((t) => !t.deadline));
+  const pastViewTasks  = [...tasks.filter((t) => t.deadline === viewDate)].sort((a, b) =>
     a.done !== b.done ? (a.done ? 1 : -1) : PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
   );
-
-  // Completed tasks sorted most recent first (completedDate desc, fall back to created_at desc)
   const completedSorted = [...allDone].sort((a, b) => {
     const aD = a.completedDate ?? a.created_at;
     const bD = b.completedDate ?? b.created_at;
     return bD.localeCompare(aD);
   });
-
-  // Pending / Done tabs show ALL tasks regardless of date strip
   const pendingForTab = sortByDeadlineAsc(allPending);
+
+  // Tag filter
+  const tagsOnTasks = allTags.filter((tag) => tasks.some((t) => t.tags.some((tt) => tt.id === tag.id)));
+  const applyTagFilter = (list: Task[]) =>
+    !selectedTagId ? list : list.filter((t) => t.tags.some((tag) => tag.id === selectedTagId));
+
+  const fOverdue    = applyTagFilter(overdueTasks);
+  const fDueOnDate  = applyTagFilter(dueOnDateTasks);
+  const fUpcoming   = applyTagFilter(upcomingTasks);
+  const fNoDate     = applyTagFilter(noDateTasks);
+  const fCompleted  = applyTagFilter(completedSorted);
+  const fPastView   = applyTagFilter(pastViewTasks);
+  const fPendingTab = applyTagFilter(pendingForTab);
+  const fDoneTab    = applyTagFilter(completedSorted);
+
+  // Tag autocomplete
+  const tagSuggestions = allTags.filter(
+    (t) =>
+      tagInput.trim().length > 0 &&
+      t.name.toLowerCase().includes(tagInput.trim().toLowerCase()) &&
+      !newTaskTags.some((nt) => nt.id === t.id)
+  );
+  const showCreateTag =
+    tagInput.trim().length > 0 &&
+    !allTags.some((t) => t.name.toLowerCase() === tagInput.trim().toLowerCase()) &&
+    !newTaskTags.some((t) => t.name.toLowerCase() === tagInput.trim().toLowerCase());
 
   /* ── Loading / Error ── */
 
@@ -371,6 +485,24 @@ export default function TasksPage() {
             )}
           </div>
         )}
+        {task.tags.length > 0 && (
+          <div className="flex items-center gap-[5px] flex-wrap">
+            {task.tags.map((tag) => {
+              const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+              return (
+                <span
+                  key={tag.id}
+                  onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                  className="px-[7px] py-[1.5px] rounded-full text-[10.5px] font-medium cursor-pointer transition-opacity hover:opacity-75"
+                  style={{ background: colors.bg, color: colors.text }}
+                  title={`Filter by #${tag.name}`}
+                >
+                  #{tag.name}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
       <button
         onClick={() => toggleTask(task.id)}
@@ -425,87 +557,86 @@ export default function TasksPage() {
       return (
         <div>
           <p className="font-mono text-[12px] text-[var(--text-secondary)] mb-4">{fmtDateFull(viewDate)}</p>
-          {pastViewTasks.length === 0
+          {fPastView.length === 0
             ? <EmptyState message="No tasks were due on this date." />
-            : <div className="flex flex-col gap-2">{pastViewTasks.map(renderCard)}</div>
+            : <div className="flex flex-col gap-2">{fPastView.map(renderCard)}</div>
           }
         </div>
       );
     }
 
     if (isToday) {
-      const empty = overdueTasks.length + dueOnDateTasks.length + noDateTasks.length + upcomingTasks.length + completedSorted.length === 0;
+      const empty = fOverdue.length + fDueOnDate.length + fNoDate.length + fUpcoming.length + fCompleted.length === 0;
       if (empty) return <EmptyState onAdd={openAddForm} />;
       return (
         <div className="flex flex-col gap-5">
-          {overdueTasks.length > 0 && (
+          {fOverdue.length > 0 && (
             <div>
-              {renderSectionLabel("Overdue", overdueTasks.length, { red: true })}
-              <div className="flex flex-col gap-2">{overdueTasks.map(renderCard)}</div>
+              {renderSectionLabel("Overdue", fOverdue.length, { red: true })}
+              <div className="flex flex-col gap-2">{fOverdue.map(renderCard)}</div>
             </div>
           )}
-          {dueOnDateTasks.length > 0 && (
+          {fDueOnDate.length > 0 && (
             <div>
-              {renderSectionLabel("Due Today", dueOnDateTasks.length)}
-              <div className="flex flex-col gap-2">{dueOnDateTasks.map(renderCard)}</div>
+              {renderSectionLabel("Due Today", fDueOnDate.length)}
+              <div className="flex flex-col gap-2">{fDueOnDate.map(renderCard)}</div>
             </div>
           )}
-          {noDateTasks.length > 0 && (
+          {fNoDate.length > 0 && (
             <div>
-              {renderSectionLabel("No Date", noDateTasks.length)}
-              <div className="flex flex-col gap-2">{noDateTasks.map(renderCard)}</div>
+              {renderSectionLabel("No Date", fNoDate.length)}
+              <div className="flex flex-col gap-2">{fNoDate.map(renderCard)}</div>
             </div>
           )}
-          {upcomingTasks.length > 0 && (
+          {fUpcoming.length > 0 && (
             <div>
-              {renderSectionLabel("Upcoming · 7 Days", upcomingTasks.length, {
+              {renderSectionLabel("Upcoming · 7 Days", fUpcoming.length, {
                 collapsible: true,
                 expanded: upcomingExpanded,
                 onToggle: () => setUpcomingExpanded((v) => !v),
               })}
               {upcomingExpanded && (
-                <div className="flex flex-col gap-2">{upcomingTasks.map(renderCard)}</div>
+                <div className="flex flex-col gap-2">{fUpcoming.map(renderCard)}</div>
               )}
             </div>
           )}
-          {completedSorted.length > 0 && (
+          {fCompleted.length > 0 && (
             <div>
-              {renderSectionLabel("Completed", completedSorted.length)}
-              <div className="flex flex-col gap-2">{completedSorted.map(renderCard)}</div>
+              {renderSectionLabel("Completed", fCompleted.length)}
+              <div className="flex flex-col gap-2">{fCompleted.map(renderCard)}</div>
             </div>
           )}
         </div>
       );
     }
 
-    // Future date
     if (isFuture) {
-      const empty = dueOnDateTasks.length + upcomingTasks.length + noDateTasks.length === 0;
+      const empty = fDueOnDate.length + fUpcoming.length + fNoDate.length === 0;
       if (empty) return <EmptyState message={`Nothing scheduled for ${fmtDeadline(viewDate)}.`} onAdd={openAddForm} />;
       return (
         <div className="flex flex-col gap-5">
-          {dueOnDateTasks.length > 0 && (
+          {fDueOnDate.length > 0 && (
             <div>
-              {renderSectionLabel(`Due ${fmtDeadline(viewDate)}`, dueOnDateTasks.length)}
-              <div className="flex flex-col gap-2">{dueOnDateTasks.map(renderCard)}</div>
+              {renderSectionLabel(`Due ${fmtDeadline(viewDate)}`, fDueOnDate.length)}
+              <div className="flex flex-col gap-2">{fDueOnDate.map(renderCard)}</div>
             </div>
           )}
-          {upcomingTasks.length > 0 && (
+          {fUpcoming.length > 0 && (
             <div>
-              {renderSectionLabel("Upcoming · 7 Days", upcomingTasks.length, {
+              {renderSectionLabel("Upcoming · 7 Days", fUpcoming.length, {
                 collapsible: true,
                 expanded: upcomingExpanded,
                 onToggle: () => setUpcomingExpanded((v) => !v),
               })}
               {upcomingExpanded && (
-                <div className="flex flex-col gap-2">{upcomingTasks.map(renderCard)}</div>
+                <div className="flex flex-col gap-2">{fUpcoming.map(renderCard)}</div>
               )}
             </div>
           )}
-          {noDateTasks.length > 0 && (
+          {fNoDate.length > 0 && (
             <div>
-              {renderSectionLabel("No Date", noDateTasks.length)}
-              <div className="flex flex-col gap-2">{noDateTasks.map(renderCard)}</div>
+              {renderSectionLabel("No Date", fNoDate.length)}
+              <div className="flex flex-col gap-2">{fNoDate.map(renderCard)}</div>
             </div>
           )}
         </div>
@@ -545,7 +676,6 @@ export default function TasksPage() {
 
           {/* Date navigation */}
           <div className="mb-5">
-            {/* Month/year label + Today jump */}
             <div className="flex items-center justify-between mb-[10px]">
               <button
                 onClick={openCalendar}
@@ -569,7 +699,6 @@ export default function TasksPage() {
               )}
             </div>
 
-            {/* Calendar picker */}
             {calendarOpen && (
               <div className="bg-white border border-[var(--border)] rounded-[14px] p-4 mb-3 shadow-[0_4px_20px_-6px_oklch(0.70_0.19_293_/_0.15)]">
                 <div className="flex items-center justify-between mb-3">
@@ -610,7 +739,6 @@ export default function TasksPage() {
               </div>
             )}
 
-            {/* Scrollable date strip */}
             <div ref={stripRef} className="flex gap-[5px] overflow-x-auto no-scrollbar pb-1 px-[2px]">
               {dateRange.map((dateStr) => {
                 const isSelected  = dateStr === viewDate;
@@ -638,8 +766,8 @@ export default function TasksPage() {
             </div>
           </div>
 
-          {/* Filter chips — moved below date strip */}
-          <div className="flex gap-2 mb-5">
+          {/* Filter chips */}
+          <div className="flex gap-2 mb-3">
             {(["all", "pending", "done"] as FilterTab[]).map((tab) => {
               const count = tab === "all" ? tasks.length : tab === "pending" ? allPending.length : allDone.length;
               return (
@@ -660,6 +788,38 @@ export default function TasksPage() {
               );
             })}
           </div>
+
+          {/* Tag filter */}
+          {tagsOnTasks.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap mb-5">
+              <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)]">Tags</span>
+              {tagsOnTasks.map((tag) => {
+                const isSelected = selectedTagId === tag.id;
+                const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => setSelectedTagId(isSelected ? null : tag.id)}
+                    className={`flex items-center gap-[5px] px-[10px] py-[4px] rounded-full text-[12px] font-medium border transition-all cursor-pointer ${
+                      isSelected ? "border-transparent" : "bg-white border-[var(--border)] text-[var(--text-secondary)] hover:border-[oklch(0.82_0.07_293)]"
+                    }`}
+                    style={isSelected ? { background: colors.bg, color: colors.text } : {}}
+                  >
+                    <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ background: isSelected ? colors.text : "oklch(0.80 0.01 264)" }} />
+                    #{tag.name}
+                  </button>
+                );
+              })}
+              {selectedTagId && (
+                <button
+                  onClick={() => setSelectedTagId(null)}
+                  className="font-mono text-[10px] text-[var(--btn-primary)] bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Inline add form */}
           {addingTask && (
@@ -690,6 +850,74 @@ export default function TasksPage() {
                   className="w-[155px] flex-shrink-0 px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)]"
                 />
               </div>
+
+              {/* Tags input */}
+              <div className="flex flex-col gap-[7px]">
+                <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)]">Tags</span>
+                {newTaskTags.length > 0 && (
+                  <div className="flex gap-[6px] flex-wrap">
+                    {newTaskTags.map((tag) => {
+                      const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+                      return (
+                        <span
+                          key={tag.id}
+                          className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-full text-[11px] font-medium"
+                          style={{ background: colors.bg, color: colors.text }}
+                        >
+                          #{tag.name}
+                          <button
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setNewTaskTags((ts) => ts.filter((t) => t.id !== tag.id))}
+                            className="flex items-center justify-center w-[14px] h-[14px] rounded-full text-[12px] leading-none bg-transparent border-none cursor-pointer opacity-60 hover:opacity-100"
+                            style={{ color: colors.text }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder="Type a tag name — press Enter or , to add"
+                    className="w-full px-3 py-[9px] text-[14px] bg-[#F4F3FF] border border-[var(--border)] rounded-[9px] outline-none focus:border-[var(--violet)] text-[var(--text-primary)] placeholder:text-[var(--text-subtle)]"
+                  />
+                  {(tagSuggestions.length > 0 || showCreateTag) && (
+                    <div className="absolute top-full left-0 right-0 z-20 bg-white border border-[var(--border)] rounded-[9px] shadow-[0_4px_16px_-4px_oklch(0.70_0.19_293_/_0.15)] mt-[2px] overflow-hidden">
+                      {tagSuggestions.map((tag) => {
+                        const colors = TAG_COLOR_MAP[tag.color] ?? TAG_COLOR_MAP.violet;
+                        return (
+                          <button
+                            key={tag.id}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => addTagToForm(tag)}
+                            className="w-full flex items-center gap-[8px] px-3 py-[8px] text-[13px] text-[var(--text-primary)] hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-left transition-colors"
+                          >
+                            <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: colors.text }} />
+                            #{tag.name}
+                          </button>
+                        );
+                      })}
+                      {showCreateTag && (
+                        <button
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={commitTagInput}
+                          className={`w-full flex items-center gap-[8px] px-3 py-[8px] text-[13px] text-[var(--btn-primary)] hover:bg-[var(--violet-active)] bg-transparent border-none cursor-pointer text-left transition-colors ${tagSuggestions.length > 0 ? "border-t border-[var(--border)]" : ""}`}
+                        >
+                          <span className="text-[15px] leading-none font-light">+</span>
+                          Create &ldquo;{tagInput.trim()}&rdquo;
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-[var(--text-subtle)] block mb-[7px]">Priority</span>
                 <div className="flex gap-2">
@@ -735,13 +963,13 @@ export default function TasksPage() {
           {filter === "all" ? (
             renderAllTab()
           ) : filter === "pending" ? (
-            pendingForTab.length === 0
+            fPendingTab.length === 0
               ? <EmptyState message="Nothing pending — you're all clear." onAdd={openAddForm} />
-              : <div className="flex flex-col gap-2">{pendingForTab.map(renderCard)}</div>
+              : <div className="flex flex-col gap-2">{fPendingTab.map(renderCard)}</div>
           ) : (
-            allDone.length === 0
+            fDoneTab.length === 0
               ? <EmptyState message="No completed tasks yet." />
-              : <div className="flex flex-col gap-2">{allDone.map(renderCard)}</div>
+              : <div className="flex flex-col gap-2">{fDoneTab.map(renderCard)}</div>
           )}
 
         </div>
