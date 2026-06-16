@@ -285,14 +285,19 @@ export default function DailiesPage() {
     try {
       const today = localDate();
       const [
-        { data: dailiesData, error: e1 },
-        { data: logsData,    error: e2 },
+        dailiesResult,
+        { data: logsData, error: e2 },
         { data: tagsData },
       ] = await Promise.all([
         db().from("dailies").select("*, daily_tags(tags(id, name, color))").order("created_at", { ascending: true }),
         db().from("daily_logs").select("daily_id, date"),
         db().from("tags").select("id, name, color").order("name", { ascending: true }),
       ]);
+
+      // Fall back to plain query if tag tables don't exist yet (migration not run)
+      const { data: dailiesData, error: e1 } = dailiesResult.error
+        ? await db().from("dailies").select("*").order("created_at", { ascending: true })
+        : dailiesResult;
       if (e1 ?? e2) throw new Error(((e1 ?? e2)!).message);
 
       setAllTags(

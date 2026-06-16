@@ -195,7 +195,7 @@ export default function TasksPage() {
     try {
       const today = localDate();
       const [
-        { data, error },
+        taskResult,
         { data: dailiesData },
         { data: logsData },
         { data: tagsData },
@@ -205,6 +205,11 @@ export default function TasksPage() {
         db().from("daily_logs").select("daily_id").eq("date", today),
         db().from("tags").select("id, name, color").order("name", { ascending: true }),
       ]);
+
+      // Fall back to plain query if tag tables don't exist yet (migration not run)
+      const { data, error } = taskResult.error
+        ? await db().from("tasks").select("*").order("created_at", { ascending: true })
+        : taskResult;
       if (error) throw new Error(error.message);
       setSidebarTotal((dailiesData ?? []).length);
       setSidebarDone((logsData ?? []).length);
