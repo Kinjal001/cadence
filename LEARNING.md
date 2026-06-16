@@ -906,3 +906,41 @@ PNG is a binary format with a specific structure: an 8-byte magic signature, the
 **Why we used it:** Needed static 192×192 and 512×512 PNG icons for the PWA manifest. Rather than installing an image library (sharp, canvas) just for a one-time icon, a ~60-line Node.js script using only built-ins generates them. The anti-aliased C shape is computed by super-sampling each pixel (4×4 subpixels) and blending purple→white based on how much of the subpixel grid falls inside the arc.
 
 **Where:** `scripts/generate-icons.mjs` — run once with `node scripts/generate-icons.mjs` to write `public/icon-192.png` and `public/icon-512.png`.
+
+---
+
+## v1.5 — Tags System
+
+### Junction tables (many-to-many relationships)
+A task can have many tags, and a tag can belong to many tasks. This is a many-to-many relationship — you can't store it in either the `tasks` or `tags` table alone. The solution is a **junction table**: `task_tags(task_id, tag_id)` where each row says "this task has this tag." The `primary key (task_id, tag_id)` prevents duplicates, and `on delete cascade` means when a task or tag is deleted, its junction rows disappear automatically.
+
+**Why we used it:** Standard relational database pattern for many-to-many. Supabase's Postgres supports it cleanly, and the `on delete cascade` keeps orphaned junction rows from piling up.
+
+**Where:** `task_tags` and `daily_tags` tables in Supabase; queried in `app/tasks/page.tsx` and `app/dailies/page.tsx` via `loadData`.
+
+---
+
+### Supabase nested selects (foreign table joins)
+Supabase lets you fetch related rows from joined tables in a single query using dot-notation in the `select()` string: `select("*, task_tags(tags(id, name, color))")`. This returns each task with a nested `task_tags` array, each containing the related `tags` object. It's equivalent to a SQL JOIN but returns JSON directly.
+
+**Why we used it:** Avoids two separate queries (fetch tasks, then fetch tags per task). One query returns everything needed to render task cards with their tags.
+
+**Where:** `loadData()` in `app/tasks/page.tsx` — the `db().from("tasks").select("*, task_tags(tags(id, name, color))")` call; similarly in `app/dailies/page.tsx`.
+
+---
+
+### Hash-based color assignment
+To give each tag a consistent color without requiring the user to pick one, we hash the tag name to an index into a color palette. The hash is a simple polynomial: `h = (h * 31 + charCode) & 0xffff` over each character. The same name always produces the same color, and different names spread across the palette.
+
+**Why we used it:** Automatic color assignment means fewer UI steps when creating a tag. The result feels intentional (same tag = same color everywhere) without requiring a color picker.
+
+**Where:** `tagAutoColor()` in `app/tasks/page.tsx` and `app/dailies/page.tsx`.
+
+---
+
+### `onMouseDown` to prevent input blur
+When a user clicks an autocomplete suggestion, the input fires `onBlur` first (before the button's `onClick`), which can hide the dropdown before the click registers. The fix: add `onMouseDown={(e) => e.preventDefault()}` to the suggestion buttons. `preventDefault()` on `mousedown` stops the browser from shifting focus away from the input, so `blur` never fires, and the `click` handler runs normally.
+
+**Why we used it:** Standard React pattern for autocomplete dropdowns. Without it, clicking a suggestion closes the dropdown before the selection is made.
+
+**Where:** All autocomplete suggestion buttons in the Tags section of add/edit forms in `app/tasks/page.tsx` and `app/dailies/page.tsx`.

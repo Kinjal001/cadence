@@ -202,15 +202,15 @@ Note: `priority` column was added via `ALTER TABLE tasks ADD COLUMN priority tex
 
 ## What's next — v1.5 Polish (in progress)
 
-**Next up: Tasks page improvements**
-- Date navigation bar (same ← Today → pattern as Today page)
-- Overdue tasks bubble to top of pending list
-- Tasks sorted by due date within each section
+**Tags system** — ✅ shipped. SQL migration required in Supabase:
+```sql
+CREATE TABLE IF NOT EXISTS tags (id uuid primary key default gen_random_uuid(), name text not null unique, color text not null default 'violet', created_at timestamptz default now());
+CREATE TABLE IF NOT EXISTS task_tags (task_id uuid references tasks(id) on delete cascade, tag_id uuid references tags(id) on delete cascade, primary key (task_id, tag_id));
+CREATE TABLE IF NOT EXISTS daily_tags (daily_id uuid references dailies(id) on delete cascade, tag_id uuid references tags(id) on delete cascade, primary key (daily_id, tag_id));
+```
 
-**Then: Tags system**
-- User-created tags for both dailies and tasks
-- New `tags`, `daily_tags`, `task_tags` tables in Supabase
-- Tag chips on cards, filter by tag on Tasks page and Dailies page
+**Remaining v1.5:**
+- Today page — user avatar account/settings menu (wire up real settings page)
 
 **After v1.5: Slice 6 (Auth)**
 - Supabase magic-link or Google OAuth sign-in at `/login`
