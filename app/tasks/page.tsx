@@ -27,6 +27,7 @@ interface Task {
   priority: Priority;
   created_at: string;
   completedDate: string | null;
+  completedAt: string | null;
   tags: Tag[];
 }
 
@@ -34,6 +35,11 @@ interface Task {
 
 function localDate(): string {
   const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function localDateFromTimestamp(iso: string): string {
+  const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -165,6 +171,7 @@ export default function TasksPage() {
   const [calYear,      setCalYear]      = useState(() => new Date().getFullYear());
   const [calMonth,     setCalMonth]     = useState(() => new Date().getMonth());
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
   const [addingTask,   setAddingTask]   = useState(false);
   const [newTitle,     setNewTitle]     = useState("");
   const [newCategory,  setNewCategory]  = useState("");
@@ -226,6 +233,7 @@ export default function TasksPage() {
           priority:     ((t.priority as Priority) ?? "medium"),
           created_at:   t.created_at as string,
           completedDate: (t.completed_date as string | null) ?? null,
+          completedAt: (t.completed_at as string | null) ?? null,
           tags: ((t.task_tags as { tags: { id: string; name: string; color: string } | null }[] | null) ?? [])
             .map((tt) => tt.tags)
             .filter((tag): tag is Tag => tag !== null),
@@ -243,8 +251,9 @@ export default function TasksPage() {
     if (!task) return;
     const nowDone = !task.done;
     const completedDate = nowDone ? todayStr : null;
-    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: nowDone, completedDate } : t));
-    await db().from("tasks").update({ done: nowDone, completed_date: completedDate }).eq("id", id);
+    const completedAt = nowDone ? new Date().toISOString() : null;
+    setTasks((ts) => ts.map((t) => t.id === id ? { ...t, done: nowDone, completedDate, completedAt } : t));
+    await db().from("tasks").update({ done: nowDone, completed_date: completedDate, completed_at: completedAt }).eq("id", id);
   };
 
   const deleteTask = async (id: string) => {
@@ -311,6 +320,7 @@ export default function TasksPage() {
           priority:     newPriority,
           created_at:   data.created_at as string,
           completedDate: null,
+          completedAt: null,
           tags: resolvedTags,
         },
       ]);
@@ -380,16 +390,14 @@ export default function TasksPage() {
   const overdueTasks   = sortByDeadlineAsc(allPending.filter((t) => t.deadline && t.deadline < todayStr));
   const dueOnDateTasks = sortByPriority(allPending.filter((t) => t.deadline === viewDate));
   const upcomingTasks  = sortByDeadlineAsc(
-    allPending.filter((t) => t.deadline && t.deadline > viewDate && t.deadline <= addDays(viewDate, 7))
+    allPending.filter((t) => t.deadline && t.deadline > viewDate)
   );
   const noDateTasks    = sortByPriority(allPending.filter((t) => !t.deadline));
-  const pastViewTasks  = [...tasks.filter((t) => t.deadline === viewDate)].sort((a, b) =>
-    a.done !== b.done ? (a.done ? 1 : -1) : PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
-  );
+  const pastViewTasks  = sortByPriority(allPending.filter((t) => t.deadline === viewDate));
   const completedSorted = [...allDone].sort((a, b) => {
-    const aD = a.completedDate ?? a.created_at;
-    const bD = b.completedDate ?? b.created_at;
-    return bD.localeCompare(aD);
+    const aT = a.completedAt ?? a.completedDate ?? a.created_at;
+    const bT = b.completedAt ?? b.completedDate ?? b.created_at;
+    return bT.localeCompare(aT);
   });
   const pendingForTab = sortByDeadlineAsc(allPending);
 
@@ -398,11 +406,14 @@ export default function TasksPage() {
   const applyTagFilter = (list: Task[]) =>
     !selectedTagId ? list : list.filter((t) => t.tags.some((tag) => tag.id === selectedTagId));
 
+  const completedOnViewDate = completedSorted.filter(
+    (t) => t.completedAt ? localDateFromTimestamp(t.completedAt) === viewDate : t.completedDate === viewDate
+  );
   const fOverdue    = applyTagFilter(overdueTasks);
   const fDueOnDate  = applyTagFilter(dueOnDateTasks);
   const fUpcoming   = applyTagFilter(upcomingTasks);
   const fNoDate     = applyTagFilter(noDateTasks);
-  const fCompleted  = applyTagFilter(completedSorted);
+  const fCompleted  = applyTagFilter(completedOnViewDate);
   const fPastView   = applyTagFilter(pastViewTasks);
   const fPendingTab = applyTagFilter(pendingForTab);
   const fDoneTab    = applyTagFilter(completedSorted);
@@ -537,21 +548,24 @@ export default function TasksPage() {
   const renderSectionLabel = (
     label: string,
     count: number,
-    opts?: { red?: boolean; collapsible?: boolean; expanded?: boolean; onToggle?: () => void }
+    opts?: { red?: boolean; collapsible?: boolean; chevron?: boolean; expanded?: boolean; onToggle?: () => void }
   ) => (
     <div className="flex items-center gap-3 mb-3">
-      <span className={`font-mono text-[10px] tracking-[0.08em] uppercase whitespace-nowrap ${opts?.red ? "text-[oklch(0.52_0.18_25)]" : "text-[var(--text-subtle)]"}`}>
+      <button
+        onClick={opts?.collapsible ? opts.onToggle : undefined}
+        className={`flex items-center gap-[5px] font-mono text-[10px] tracking-[0.08em] uppercase whitespace-nowrap bg-transparent border-none p-0 transition-opacity ${opts?.collapsible ? "cursor-pointer hover:opacity-70" : "cursor-default"} ${opts?.red ? "text-[oklch(0.52_0.18_25)]" : "text-[var(--text-subtle)]"}`}
+      >
         {label} · {count}
-      </span>
+        {opts?.chevron && (
+          <svg
+            width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"
+            style={{ transform: opts.expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}
+          >
+            <polyline points="2,3.5 5,6.5 8,3.5" />
+          </svg>
+        )}
+      </button>
       <div className={`flex-1 h-px ${opts?.red ? "bg-[oklch(0.90_0.05_25)]" : "bg-[var(--border)]"}`} />
-      {opts?.collapsible && (
-        <button
-          onClick={opts.onToggle}
-          className="font-mono text-[10px] tracking-[0.06em] uppercase text-[var(--btn-primary)] bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity"
-        >
-          {opts.expanded ? "hide" : "show"}
-        </button>
-      )}
     </div>
   );
 
@@ -560,12 +574,30 @@ export default function TasksPage() {
   const renderAllTab = () => {
     if (isPast) {
       return (
-        <div>
-          <p className="font-mono text-[12px] text-[var(--text-secondary)] mb-4">{fmtDateFull(viewDate)}</p>
-          {fPastView.length === 0
-            ? <EmptyState message="No tasks were due on this date." />
-            : <div className="flex flex-col gap-2">{fPastView.map(renderCard)}</div>
-          }
+        <div className="flex flex-col gap-5">
+          <p className="font-mono text-[12px] text-[var(--text-secondary)] mb-0">{fmtDateFull(viewDate)}</p>
+          {fPastView.length > 0 && (
+            <div>
+              {renderSectionLabel(`Due ${fmtDeadline(viewDate)}`, fPastView.length)}
+              <div className="flex flex-col gap-2">{fPastView.map(renderCard)}</div>
+            </div>
+          )}
+          {fCompleted.length > 0 && (
+            <div>
+              {renderSectionLabel("Completed", fCompleted.length, {
+                collapsible: true,
+                chevron: true,
+                expanded: completedExpanded,
+                onToggle: () => setCompletedExpanded((v) => !v),
+              })}
+              {completedExpanded && (
+                <div className="flex flex-col gap-2">{fCompleted.map(renderCard)}</div>
+              )}
+            </div>
+          )}
+          {fPastView.length === 0 && fCompleted.length === 0 && (
+            <EmptyState message="No tasks on this date." />
+          )}
         </div>
       );
     }
@@ -595,8 +627,9 @@ export default function TasksPage() {
           )}
           {fUpcoming.length > 0 && (
             <div>
-              {renderSectionLabel("Upcoming · 7 Days", fUpcoming.length, {
+              {renderSectionLabel("Upcoming", fUpcoming.length, {
                 collapsible: true,
+                chevron: true,
                 expanded: upcomingExpanded,
                 onToggle: () => setUpcomingExpanded((v) => !v),
               })}
@@ -607,8 +640,15 @@ export default function TasksPage() {
           )}
           {fCompleted.length > 0 && (
             <div>
-              {renderSectionLabel("Completed", fCompleted.length)}
-              <div className="flex flex-col gap-2">{fCompleted.map(renderCard)}</div>
+              {renderSectionLabel("Completed", fCompleted.length, {
+                collapsible: true,
+                chevron: true,
+                expanded: completedExpanded,
+                onToggle: () => setCompletedExpanded((v) => !v),
+              })}
+              {completedExpanded && (
+                <div className="flex flex-col gap-2">{fCompleted.map(renderCard)}</div>
+              )}
             </div>
           )}
         </div>
@@ -628,8 +668,9 @@ export default function TasksPage() {
           )}
           {fUpcoming.length > 0 && (
             <div>
-              {renderSectionLabel("Upcoming · 7 Days", fUpcoming.length, {
+              {renderSectionLabel("Upcoming", fUpcoming.length, {
                 collapsible: true,
+                chevron: true,
                 expanded: upcomingExpanded,
                 onToggle: () => setUpcomingExpanded((v) => !v),
               })}
